@@ -1,0 +1,1183 @@
+import pygame
+import sys
+import random
+import math
+
+# --- Constants ---
+SCREEN_WIDTH = 1280
+SCREEN_HEIGHT = 960
+ASPECT_RATIO = 4 / 3
+FPS = 60
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
+YELLOW = (255, 255, 0)
+CYAN = (0, 200, 200)
+PURPLE = (150, 0, 200)
+ORANGE = (255, 150, 0)
+GREY = (180, 180, 180)
+DARK_GREY = (80, 80, 80)
+LIGHT_GREY = (210, 210, 210)
+LIGHT_BLUE = (150, 200, 255)
+DARK_RED = (150, 0, 0)
+DARK_GREEN = (0, 100, 0)
+DARK_BLUE = (0, 0, 150)
+DARK_YELLOW = (200, 200, 0)
+DAMAGE_FLASH_COLOR = WHITE + (150,) # Brighter flash now
+BORDER_GLOW_COLOR = CYAN # Example glow color
+
+# --- Asset Generation (Heavily Modified) ---
+def generate_assets():
+    assets = {}
+    print("Generating enhanced assets...")
+
+    # --- Helper for 8-dir rotation ---
+    def create_directional_assets(base_key, base_img):
+        # Store original as North
+        assets[base_key + '_n'] = base_img
+        # Generate rotated versions (may distort, but better base helps)
+        assets[base_key + '_ne'] = pygame.transform.rotate(base_img, -45)
+        assets[base_key + '_e'] = pygame.transform.rotate(base_img, -90)
+        assets[base_key + '_se'] = pygame.transform.rotate(base_img, -135)
+        assets[base_key + '_s'] = pygame.transform.rotate(base_img, 180)
+        assets[base_key + '_sw'] = pygame.transform.rotate(base_img, 135)
+        assets[base_key + '_w'] = pygame.transform.rotate(base_img, 90)
+        assets[base_key + '_nw'] = pygame.transform.rotate(base_img, 45)
+
+    # --- Player Ships (More Detail) ---
+    # Shooter (More angular, distinct engine)
+    img_base = pygame.Surface((50, 45), pygame.SRCALPHA) # Slightly taller for engine
+    ship_body = [(25, 0), (5, 30), (15, 28), (35, 28), (45, 30)]
+    pygame.draw.polygon(img_base, GREY, ship_body) # Main hull
+    pygame.draw.polygon(img_base, DARK_GREY, [(25, 5), (10, 28), (18, 26), (32, 26), (40, 28)]) # Darker inset
+    pygame.draw.polygon(img_base, BLUE, [(25, 10), (18, 24), (32, 24)]) # Cockpit/Accent
+    # Engine section
+    pygame.draw.rect(img_base, DARK_GREY, (18, 28, 14, 10)) # Engine block
+    pygame.draw.ellipse(img_base, ORANGE, (20, 35, 10, 8)) # Main thruster glow
+    pygame.draw.ellipse(img_base, YELLOW, (22, 36, 6, 6)) # Inner glow
+    create_directional_assets('player_shooter', img_base)
+
+    # Hybrid (Chunkier, defined front/wings)
+    img_base = pygame.Surface((48, 48), pygame.SRCALPHA)
+    # Body
+    pygame.draw.rect(img_base, DARK_GREY, (8, 0, 32, 40)) # Main body
+    pygame.draw.rect(img_base, GREY, (12, 5, 24, 30)) # Lighter center
+    # Wings/Sides
+    pygame.draw.polygon(img_base, DARK_GREEN, [(8, 8), (0, 15), (0, 25), (8, 32)]) # Left wing block
+    pygame.draw.polygon(img_base, DARK_GREEN, [(40, 8), (48, 15), (48, 25), (40, 32)]) # Right wing block
+    pygame.draw.polygon(img_base, GREEN, [(8, 12), (4, 17), (4, 23), (8, 28)]) # Left wing accent
+    pygame.draw.polygon(img_base, GREEN, [(40, 12), (44, 17), (44, 23), (40, 28)]) # Right wing accent
+    # Engine
+    pygame.draw.rect(img_base, DARK_GREY, (16, 40, 16, 8))
+    pygame.draw.ellipse(img_base, LIGHT_BLUE, (18, 42, 12, 6)) # Blue engine glow
+    create_directional_assets('player_hybrid', img_base)
+
+    # Reflector (Wider, smoother, distinct panels)
+    img_base = pygame.Surface((64, 55), pygame.SRCALPHA)
+    # Main hull (layered polygons)
+    pygame.draw.polygon(img_base, DARK_GREY, [(32, 0), (0, 25), (10, 45), (54, 45), (64, 25)])
+    pygame.draw.polygon(img_base, LIGHT_GREY, [(32, 5), (5, 25), (15, 40), (49, 40), (59, 25)])
+    # Central structure/cockpit
+    pygame.draw.polygon(img_base, WHITE, [(32, 8), (20, 25), (25, 35), (39, 35), (44, 25)])
+    pygame.draw.polygon(img_base, YELLOW, [(32, 12), (24, 25), (28, 32), (36, 32), (40, 25)]) # Yellow accent
+    # Engine
+    pygame.draw.rect(img_base, GREY, (26, 45, 12, 10))
+    pygame.draw.ellipse(img_base, YELLOW, (28, 48, 8, 6)) # Yellow engine glow
+    create_directional_assets('player_reflector', img_base)
+
+    # --- Enemy Ships (More Detail) ---
+    # Basic (More bug-like)
+    img = pygame.Surface((40, 40), pygame.SRCALPHA)
+    pygame.draw.ellipse(img, DARK_GREEN, (0, 5, 40, 30)) # Body
+    pygame.draw.ellipse(img, GREEN, (5, 10, 30, 20)) # Highlight
+    pygame.draw.polygon(img, DARK_GREEN, [(0, 15), (5, 10), (5, 30), (0, 25)]) # Left mandible?
+    pygame.draw.polygon(img, DARK_GREEN, [(40, 15), (35, 10), (35, 30), (40, 25)]) # Right mandible?
+    pygame.draw.ellipse(img, RED, (13, 15, 6, 4)) # Eye 1
+    pygame.draw.ellipse(img, RED, (21, 15, 6, 4)) # Eye 2
+    assets['enemy_basic'] = img
+
+    # Strafer (Sharper, fins)
+    img = pygame.Surface((45, 40), pygame.SRCALPHA) # Slightly taller
+    pygame.draw.polygon(img, (0, 150, 150), [(22, 0), (0, 30), (10, 40), (35, 40), (45, 30)]) # Main body dark cyan
+    pygame.draw.polygon(img, CYAN, [(22, 5), (5, 28), (12, 35), (33, 35), (40, 28)]) # Lighter inset
+    pygame.draw.line(img, WHITE, (22, 8), (22, 20), 1) # Center line detail
+    pygame.draw.rect(img, DARK_GREY, (18, 38, 9, 5)) # Engine nozzle
+    assets['enemy_strafer'] = img
+
+    # Charger (More menacing, plating)
+    img = pygame.Surface((50, 55), pygame.SRCALPHA)
+    pygame.draw.polygon(img, DARK_RED, [(25, 50), (0, 15), (10, 0), (40, 0), (50, 15)]) # Main body dark red
+    pygame.draw.polygon(img, RED, [(25, 45), (5, 18), (13, 5), (37, 5), (45, 18)]) # Lighter red plates
+    pygame.draw.polygon(img, ORANGE, [(25, 40), (15, 25), (25, 10), (35, 25)]) # Center detail/eye?
+    pygame.draw.rect(img, (50,0,0), (20, 50, 10, 5)) # Engine back
+    assets['enemy_charger'] = img
+
+    # Laser (Crystalline, glowing core)
+    img = pygame.Surface((40, 45), pygame.SRCALPHA)
+    pygame.draw.polygon(img, (100, 0, 150), [(20, 0), (0, 20), (20, 45), (40, 20)]) # Dark Purple diamond body
+    pygame.draw.polygon(img, PURPLE, [(20, 5), (5, 20), (20, 40), (35, 20)]) # Lighter facets
+    pygame.draw.ellipse(img, WHITE, (15, 18, 10, 10)) # White core
+    pygame.draw.ellipse(img, LIGHT_BLUE, (17, 20, 6, 6)) # Blue glow in core
+    pygame.draw.rect(img, LIGHT_GREY, (18, 40, 4, 5)) # Emitter tip (brighter)
+    assets['enemy_laser'] = img
+
+    # --- Bullets (Added simple trails/glow) ---
+    # Player Bullet
+    img = pygame.Surface((9, 20), pygame.SRCALPHA) # Slightly wider for glow
+    pygame.draw.rect(img, LIGHT_BLUE, (2, 0, 5, 15)) # Core bullet
+    pygame.draw.rect(img, BLUE + (100,), (0, 2, 9, 18)) # Glow rect
+    assets['bullet_player'] = img
+    # Enemy Bullet
+    img = pygame.Surface((9, 15), pygame.SRCALPHA) # Slightly wider
+    pygame.draw.rect(img, ORANGE, (2, 0, 5, 10)) # Core bullet
+    pygame.draw.rect(img, RED + (100,), (0, 1, 9, 14)) # Glow rect
+    assets['bullet_enemy'] = img
+    # Boss Bullet
+    img = pygame.Surface((19, 19), pygame.SRCALPHA) # Larger for glow
+    pygame.draw.circle(img, ORANGE, (9, 9), 7)
+    pygame.draw.circle(img, YELLOW, (9, 9), 4)
+    pygame.draw.circle(img, RED + (80,), (9, 9), 9) # Glow circle
+    assets['bullet_boss'] = img
+
+    # --- Sword Slash Animation Frames (Enhanced Arc) ---
+    assets['sword_slash_frames'] = []
+    num_frames = 6; max_radius = 70; arc_thickness = 6 # Wider range, thicker
+    for i in range(num_frames):
+        frame_size = (max_radius * 2 + 20, max_radius * 2 + 20); frame_surf = pygame.Surface(frame_size, pygame.SRCALPHA)
+        center_x, center_y = frame_size[0] // 2, frame_size[1] // 2; current_progress = (i + 1) / num_frames
+        current_radius = int(max_radius * current_progress); current_alpha = int(255 * (1.0 - (i / num_frames)**1.8)) # Adjust fade
+        arc_rect = pygame.Rect(center_x - current_radius, center_y - current_radius, current_radius*2, current_radius*2)
+        start_a = math.radians(180 + 50); end_a = math.radians(180 - 50) # Wider sweep
+        try:
+            if arc_rect.width > 0 and arc_rect.height > 0 and current_radius > arc_thickness // 2:
+                pygame.draw.arc(frame_surf, WHITE + (current_alpha,), arc_rect, start_a, end_a, arc_thickness)
+                # Add inner glow?
+                if current_radius > arc_thickness + 2:
+                     pygame.draw.arc(frame_surf, LIGHT_BLUE + (current_alpha // 2,), arc_rect, start_a, end_a, arc_thickness - 2)
+        except ValueError as e: print(f"Warning: Error drawing arc frame {i}: {e}")
+        assets['sword_slash_frames'].append(frame_surf)
+
+    # --- Background (Keep as is) ---
+    img = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT)); img.fill(BLACK)
+    for _ in range(150): x = random.randrange(SCREEN_WIDTH); y = random.randrange(SCREEN_HEIGHT); size = random.choice([1, 1, 2, 2, 3]); brightness = random.randrange(100, 255); color = (brightness, brightness, brightness); pygame.draw.rect(img, color, (x, y, size, size))
+    assets['background'] = img
+    # --- Boss Assets (Keep as is) ---
+    print("Generating boss assets...")
+    img_base = pygame.Surface((120, 100), pygame.SRCALPHA); pygame.draw.polygon(img_base, (180, 0, 0), [(60, 0), (0, 40), (60, 100), (120, 40)]); pygame.draw.polygon(img_base, (255, 50, 50), [(60, 10), (10, 40), (60, 90), (110, 40)]); pygame.draw.circle(img_base, YELLOW, (60, 50), 10); assets['boss_main'] = img_base
+
+    print("Generated procedural assets.")
+    return assets
+
+# --- Define 8 Direction Constants and Vectors ---
+DIRECTIONS = {
+    (67.5, 112.5):     (0,     '_n',           pygame.Vector2(0, -1)), (22.5, 67.5):      (1,     '_ne',          pygame.Vector2(1, -1).normalize()),
+    (-22.5, 22.5):     (2,     '_e',           pygame.Vector2(1, 0)),   (-67.5, -22.5):    (3,     '_se',          pygame.Vector2(1, 1).normalize()),
+    (-112.5, -67.5):   (4,     '_s',           pygame.Vector2(0, 1)),   (-157.5, -112.5):  (5,     '_sw',          pygame.Vector2(-1, 1).normalize()),
+    (157.5, 180.0):    (6,     '_w',           pygame.Vector2(-1, 0)),
+    (-180.0, -157.5):  (6,     '_w',           pygame.Vector2(-1, 0)),
+    (112.5, 157.5):    (7,     '_nw',          pygame.Vector2(-1, -1).normalize())
+}
+def get_direction_from_angle(angle_deg):
+    for angle_range, (index, suffix, vector) in DIRECTIONS.items():
+        if index == 6:
+            if angle_deg > 157.5 or angle_deg <= -157.5: return index, suffix, vector
+        elif angle_range[0] <= angle_deg < angle_range[1]: return index, suffix, vector
+    return 0, '_n', pygame.Vector2(0, -1)
+
+SHIELD_DIR_MAP = {0: 0, 1: 0, 2: 1, 3: 1, 4: 2, 5: 2, 6: 3, 7: 0}
+
+# --- Global Assets Dictionary ---
+generated_assets = generate_assets()
+
+# --- Game States ---
+MENU = 0; PLAYING = 1; WAVE_TRANSITION = 2; BOSS_FIGHT = 3; GAME_OVER = 4; VICTORY = 5
+
+# --- Wave Configuration ---
+MAX_WAVES = 5
+WAVE_DEFINITIONS = {
+    1: (8,  1.0, [0.7, 0.3, 0.0, 0.0]), 2: (12, 0.9, [0.5, 0.4, 0.1, 0.0]),
+    3: (15, 0.8, [0.3, 0.4, 0.2, 0.1]), 4: (18, 0.7, [0.2, 0.3, 0.3, 0.2]),
+    5: (22, 0.6, [0.1, 0.2, 0.4, 0.3]),
+}
+WAVE_TRANSITION_TIME = 2500
+
+# --- Game Class (MODIFIED) ---
+class Game:
+    def __init__(self):
+        pygame.init(); pygame.mixer.init()
+        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT)); pygame.display.set_caption("Retro Invader")
+        self.clock = pygame.time.Clock()
+        # --- Font Loading ---
+        self.font_size_hud = 24
+        self.font_size_menu = 32
+        self.font_size_large = 64
+        font_path = "fonts/pixel_font.ttf" 
+        try:
+            self.font_hud = pygame.font.Font(font_path, self.font_size_hud)
+            self.font_menu = pygame.font.Font(font_path, self.font_size_menu)
+            self.font_large = pygame.font.Font(font_path, self.font_size_large)
+            print(f"Loaded font: {font_path}")
+        except pygame.error as e:
+            print(f"Error loading font '{font_path}': {e}. Using default font.")
+            self.font_hud = pygame.font.Font(None, 36) # Default fallback
+            self.font_menu = pygame.font.Font(None, 48)
+            self.font_large = pygame.font.Font(None, 72)
+        # --- Rest of init ---
+        self.game_state = MENU; self.player_choice = None; self.score = 0; self.running = True; self.dt = 0
+        self.all_sprites = pygame.sprite.Group(); self.enemies = pygame.sprite.Group()
+        self.player_bullets = pygame.sprite.Group(); self.enemy_bullets = pygame.sprite.Group()
+        self.effects = pygame.sprite.Group(); self.player_group = pygame.sprite.GroupSingle()
+        self.player = None; self.background_img = generated_assets.get('background', None)
+        self.current_wave = 0; self.enemies_spawned_this_wave = 0; self.enemies_in_current_wave_definition = 0
+        self.wave_spawn_timer = 0; self.base_spawn_rate = 2000; self.current_spawn_rate = self.base_spawn_rate
+        self.wave_transition_timer = 0; self.boss = None; self.max_enemies = 15
+
+    def run(self):
+        while self.running:
+            self.dt = min(self.clock.tick(FPS) / 1000.0, 0.05)
+            self.handle_events()
+            self.update()
+            self.draw()
+        pygame.quit()
+        sys.exit()
+
+    def handle_events(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+            current_state = self.game_state
+            if current_state == MENU:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_1: self.player_choice = "Reflector"; self.start_game()
+                    elif event.key == pygame.K_2: self.player_choice = "Hybrid"; self.start_game()
+                    elif event.key == pygame.K_3: self.player_choice = "Shooter"; self.start_game()
+                    elif event.key == pygame.K_q: self.running = False
+            elif current_state == GAME_OVER or current_state == VICTORY:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_r: self.game_state = MENU; self.reset_game_state()
+                    elif event.key == pygame.K_q: self.running = False
+            elif current_state == PLAYING or current_state == BOSS_FIGHT:
+                 if self.player: self.player.handle_event(event)
+
+    def reset_game_state(self):
+        self.all_sprites.empty(); self.enemies.empty(); self.effects.empty()
+        self.player_bullets.empty(); self.enemy_bullets.empty()
+        self.player_group.empty(); self.player = None; self.boss = None
+        self.score = 0; self.current_wave = 0; self.enemies_spawned_this_wave = 0; self.wave_spawn_timer = 0
+        self.enemies_in_current_wave_definition = 0
+
+    def update(self):
+        if self.game_state == PLAYING: self.update_playing()
+        elif self.game_state == WAVE_TRANSITION: self.update_wave_transition()
+        elif self.game_state == BOSS_FIGHT: self.update_boss_fight()
+
+    def update_playing(self):
+        self.all_sprites.update(self.dt)
+        if self.enemies_in_current_wave_definition == 0 and self.current_wave <= MAX_WAVES:
+             self.start_next_wave()
+        if self.current_wave > 0 and self.current_wave <= MAX_WAVES and \
+           self.enemies_spawned_this_wave < self.enemies_in_current_wave_definition and \
+           len(self.enemies) < self.max_enemies:
+            now = pygame.time.get_ticks()
+            if now - self.wave_spawn_timer > self.current_spawn_rate:
+                self.wave_spawn_timer = now; self.spawn_enemy_for_wave(); self.enemies_spawned_this_wave += 1
+        if self.enemies_spawned_this_wave >= self.enemies_in_current_wave_definition and \
+           len(self.enemies) == 0 and self.current_wave > 0 and \
+           self.enemies_in_current_wave_definition > 0:
+            if self.current_wave < MAX_WAVES:
+                 print(f"Wave {self.current_wave} Cleared!")
+                 if self.player: self.player.gain_wave_upgrade(self.current_wave)
+                 self.enemies_in_current_wave_definition = 0
+                 self.game_state = WAVE_TRANSITION; self.wave_transition_timer = pygame.time.get_ticks()
+            elif self.current_wave == MAX_WAVES:
+                 print("Final Wave Cleared! Boss Incoming!")
+                 if self.player: self.player.gain_wave_upgrade(self.current_wave)
+                 self.enemies_in_current_wave_definition = 0
+                 self.game_state = BOSS_FIGHT; self.spawn_boss()
+        self.handle_collisions()
+        if self.player and self.player.health <= 0: self.game_state = GAME_OVER
+
+    def update_wave_transition(self):
+        self.all_sprites.update(self.dt)
+        now = pygame.time.get_ticks()
+        if now - self.wave_transition_timer > WAVE_TRANSITION_TIME: self.game_state = PLAYING
+
+    def update_boss_fight(self):
+        self.all_sprites.update(self.dt); self.handle_collisions()
+        if self.player and self.player.health <= 0: self.game_state = GAME_OVER
+        if self.boss and not self.boss.alive(): print("BOSS DEFEATED!"); self.game_state = VICTORY; self.boss = None
+
+    def handle_collisions(self):
+        # Player Bullets vs Enemies/Boss
+        for bullet in list(self.player_bullets):
+             boss_hit = False
+             if self.game_state == BOSS_FIGHT and self.boss and self.boss.alive() and pygame.sprite.collide_mask(bullet, self.boss):
+                  if bullet.owner == "player" or bullet.owner == "reflected":
+                       damage_mult = 1.5 if bullet.owner == "reflected" else 1.0
+                       killed_boss = self.boss.take_damage(bullet.damage * damage_mult, bullet.rect.center)
+                       # Handle piercing
+                       if hasattr(bullet, 'pierce_count') and bullet.pierce_count >= 0:
+                            bullet.pierce_count -= 1
+                            if bullet.pierce_count < 0: bullet.kill()
+                       else: bullet.kill() # Kill non-piercing
+                       boss_hit = True
+             if not boss_hit: # Only check enemies if boss wasn't hit (or no boss)
+                  collided_enemies = pygame.sprite.spritecollide(bullet, self.enemies, False, pygame.sprite.collide_mask)
+                  if collided_enemies:
+                       if bullet.owner == "player" or bullet.owner == "reflected":
+                            enemies_hit_this_bullet = 0
+                            for enemy in collided_enemies:
+                                 if not hasattr(bullet, 'pierce_count') or bullet.pierce_count >= 0 or enemies_hit_this_bullet == 0:
+                                     damage_mult = 1.5 if bullet.owner == "reflected" else 1.0
+                                     enemy.take_damage(bullet.damage * damage_mult, bullet.rect.center)
+                                     enemies_hit_this_bullet += 1
+                                     if hasattr(bullet, 'pierce_count'):
+                                          bullet.pierce_count -= 1
+                                          if bullet.pierce_count < 0: break
+                            # Kill bullet if non-piercing or out of pierce counts
+                            if not hasattr(bullet, 'pierce_count') or bullet.pierce_count < 0:
+                                 if enemies_hit_this_bullet > 0: bullet.kill()
+
+        # Player vs Enemies/Boss (Collision damage)
+        if self.player:
+            # Prevent collision damage if shield is active for Hybrid/Reflector
+            can_take_bump_damage = True
+            apply_bump_damage_to_enemy = True # Assume player damages enemy by default
+            if isinstance(self.player, (ReflectorPlayer, HybridPlayer)) and self.player.shield_active:
+                 apply_bump_damage_to_enemy = False # Shield prevents damaging enemy
+                 # Optional: Prevent player from taking bump damage too if shield is active? Maybe not.
+                 # can_take_bump_damage = False
+
+            # Check vs Boss
+            if self.game_state == BOSS_FIGHT and self.boss and self.boss.alive() and pygame.sprite.collide_mask(self.player, self.boss):
+                 if can_take_bump_damage: self.player.take_damage(25) # Player takes damage regardless of shield?
+                 # Don't apply bump damage TO boss
+
+            # Check vs Enemies
+            hits = pygame.sprite.spritecollide(self.player, self.enemies, False, pygame.sprite.collide_mask)
+            for enemy in hits:
+                is_charger = isinstance(enemy, ChargerEnemy) and enemy.state == "charging"
+                if is_charger:
+                     if can_take_bump_damage: self.player.take_damage(40)
+                     enemy.kill() # Charger always dies
+                else:
+                    if can_take_bump_damage: self.player.take_damage(15)
+                    if apply_bump_damage_to_enemy: enemy.take_damage(20, self.player.rect.center)
+
+        # Player vs Enemy/Boss Bullets
+        if self.player:
+            hits = pygame.sprite.spritecollide(self.player, self.enemy_bullets, True, pygame.sprite.collide_mask)
+            for bullet in hits: self.player.take_damage(bullet.damage) # Player class handles shield interaction internally
+
+    def start_next_wave(self):
+        self.current_wave += 1; print(f"--- Starting Wave {self.current_wave} ---")
+        self.enemies_spawned_this_wave = 0; wave_data = WAVE_DEFINITIONS.get(self.current_wave)
+        if wave_data:
+            self.enemies_in_current_wave_definition = wave_data[0]; spawn_rate_factor = wave_data[1]; self.current_spawn_rate = self.base_spawn_rate * spawn_rate_factor; self.wave_enemy_weights = wave_data[2]
+            print(f"  Enemies: {self.enemies_in_current_wave_definition}, Spawn Rate: {self.current_spawn_rate:.0f}ms")
+        else: print(f"Error: Wave definition not found for wave {self.current_wave}"); self.enemies_in_current_wave_definition = 0
+
+    def spawn_enemy_for_wave(self):
+        if not hasattr(self, 'wave_enemy_weights'): return
+        enemy_types = [BasicEnemy, StraferEnemy, ChargerEnemy, LaserEnemy]
+        chosen_type = random.choices(enemy_types, weights=self.wave_enemy_weights, k=1)[0]
+        enemy = chosen_type(self); self.all_sprites.add(enemy); self.enemies.add(enemy)
+
+    def spawn_boss(self):
+        self.enemies.empty(); self.boss = BossEnemy(self); self.all_sprites.add(self.boss); self.boss.enter_scene()
+
+    def find_nearest_enemy(self, position, max_dist=800):
+        nearest_enemy = None; min_dist_sq = max_dist * max_dist; position_vec = pygame.Vector2(position)
+        for enemy in self.enemies:
+             if enemy.state != "entering":
+                 enemy_pos = pygame.Vector2(enemy.rect.center); dist_sq = (position_vec - enemy_pos).length_squared()
+                 if dist_sq < min_dist_sq: min_dist_sq = dist_sq; nearest_enemy = enemy
+        if self.game_state == BOSS_FIGHT and self.boss and self.boss.alive():
+             boss_pos = pygame.Vector2(self.boss.rect.center); dist_sq = (position_vec - boss_pos).length_squared()
+             if dist_sq < min_dist_sq: nearest_enemy = self.boss
+        return nearest_enemy
+
+    def draw_text(self, text, font, color, surface, x, y, center=False):
+        textobj = font.render(text, True, color); textrect = textobj.get_rect()
+        if center: textrect.center = (x, y)
+        else: textrect.topleft = (x, y)
+        surface.blit(textobj, textrect)
+
+    def draw_glowing_border(self):
+        border_thickness = 5
+        glow_layers = 4
+        glow_alpha_start = 80
+        glow_color = BORDER_GLOW_COLOR
+
+        for i in range(glow_layers):
+            alpha = int(glow_alpha_start * ((glow_layers - i) / glow_layers)**1.5) # Non-linear fade
+            color = glow_color[:3] + (alpha,) # Add alpha to color tuple
+            thickness = border_thickness + i * 2 # Make outer layers thicker
+
+            # Draw using lines for alpha compatibility
+            points = [
+                (thickness // 2, thickness // 2),
+                (SCREEN_WIDTH - thickness // 2, thickness // 2),
+                (SCREEN_WIDTH - thickness // 2, SCREEN_HEIGHT - thickness // 2),
+                (thickness // 2, SCREEN_HEIGHT - thickness // 2)
+            ]
+            try:
+                pygame.draw.lines(self.screen, color, True, points, thickness)
+            except: # Sometimes alpha line drawing throws errors?
+                pass # Skip drawing this layer if error occurs
+
+
+    def draw(self):
+        if self.background_img: self.screen.blit(self.background_img, (0, 0))
+        else: self.screen.fill(BLACK)
+
+        # --- Draw Border FIRST ---
+        self.draw_glowing_border()
+
+        current_state = self.game_state
+        if current_state == MENU:
+            # Use menu font size
+            self.draw_text("THE INVADER", self.font_large, WHITE, self.screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 4, center=True)
+            self.draw_text("Choose your Class:", self.font_menu, WHITE, self.screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 60, center=True)
+            self.draw_text("1 - Reflector", self.font_menu, YELLOW, self.screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 10, center=True)
+            self.draw_text("2 - Hybrid", self.font_menu, GREEN, self.screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50, center=True)
+            self.draw_text("3 - Shooter", self.font_menu, BLUE, self.screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 90, center=True)
+            # Smaller font for controls
+            self.draw_text("Controls: WASD/Arrows: Move | RMB: Shield/Aim", self.font_hud, WHITE, self.screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT * 0.7 + 40, center=True)
+            self.draw_text("E/LCtrl: Bash(R) | E: Thrust(H) | LMB: Slash(H)", self.font_hud, WHITE, self.screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT * 0.7 + 70, center=True)
+            self.draw_text("T: Spin(H) | M: Mode(S) | R: Ultimate", self.font_hud, WHITE, self.screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT * 0.7 + 100, center=True)
+            self.draw_text("Press Q to Quit", self.font_menu, RED, self.screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT - 60, center=True)
+
+        elif current_state in [PLAYING, WAVE_TRANSITION, BOSS_FIGHT]:
+            # Draw sprites
+            for sprite in self.all_sprites:
+                if not isinstance(sprite, (Enemy, BossEnemy)):
+                    if hasattr(sprite, 'image') and hasattr(sprite, 'rect'): self.screen.blit(sprite.image, sprite.rect)
+            for sprite in self.enemies: sprite.draw(self.screen)
+            if self.boss: self.boss.draw(self.screen)
+            # Draw lasers on top
+            entities_that_can_laser = list(self.enemies)
+            if self.boss and isinstance(self.boss, LaserEnemy): entities_that_can_laser.append(self.boss)
+            for entity in entities_that_can_laser:
+                 if isinstance(entity, LaserEnemy):
+                     if entity.state == "charging": entity.draw_laser_indicator(self.screen)
+                     elif entity.state == "firing": entity.draw_laser_beam(self.screen)
+            # Draw HUD - Use HUD font
+            if self.player:
+                self.draw_text(f"Health: {int(self.player.health)}", self.font_hud, WHITE, self.screen, 10, 10); self.player.draw_hud(self.screen, self.font_hud)
+            self.draw_text(f"Score: {self.score}", self.font_hud, WHITE, self.screen, SCREEN_WIDTH - 200, 10) # Adjust pos if needed
+            if current_state == PLAYING: self.draw_text(f"Wave: {self.current_wave}", self.font_hud, WHITE, self.screen, SCREEN_WIDTH // 2, 10, center=True)
+            elif current_state == WAVE_TRANSITION:
+                self.draw_text(f"Wave {self.current_wave} Cleared!", self.font_large, GREEN, self.screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 40, center=True); self.draw_text(f"Next Wave Incoming...", self.font_menu, WHITE, self.screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 20, center=True)
+            if current_state == BOSS_FIGHT and self.boss and self.boss.alive(): self.draw_boss_health_bar() # Uses its own font setting
+
+        elif current_state == VICTORY:
+            self.draw_text("VICTORY!", self.font_large, GREEN, self.screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 3, center=True); self.draw_text(f"Final Score: {self.score}", self.font_menu, WHITE, self.screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, center=True); self.draw_text("Press R to Return to Menu", self.font_menu, WHITE, self.screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50, center=True); self.draw_text("Press Q to Quit", self.font_menu, WHITE, self.screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100, center=True)
+        elif current_state == GAME_OVER:
+            self.draw_text("GAME OVER", self.font_large, RED, self.screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 3, center=True); self.draw_text(f"Final Score: {self.score}", self.font_menu, WHITE, self.screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, center=True); self.draw_text("Press R to Return to Menu", self.font_menu, WHITE, self.screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50, center=True); self.draw_text("Press Q to Quit", self.font_menu, WHITE, self.screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100, center=True)
+        pygame.display.flip()
+
+    def draw_boss_health_bar(self):
+        if not self.boss: return
+        bar_width = SCREEN_WIDTH * 0.6; bar_height = 25; x = (SCREEN_WIDTH - bar_width) / 2; y = 40
+        health_pct = max(0, self.boss.health / self.boss.max_health); fill_width = int(bar_width * health_pct)
+        outline_rect = pygame.Rect(x, y, bar_width, bar_height); fill_rect = pygame.Rect(x, y, fill_width, bar_height)
+        bar_color = RED; pygame.draw.rect(self.screen, bar_color, fill_rect); pygame.draw.rect(self.screen, WHITE, outline_rect, 2)
+        self.draw_text("BOSS", self.font_hud, WHITE, self.screen, x + bar_width / 2, y + bar_height / 2, center=True) # Use HUD font
+
+    def start_game(self):
+        self.reset_game_state()
+        if self.player_choice == "Reflector": self.player = ReflectorPlayer(self)
+        elif self.player_choice == "Hybrid": self.player = HybridPlayer(self)
+        elif self.player_choice == "Shooter": self.player = ShooterPlayer(self)
+        else: self.game_state = MENU; return
+        self.all_sprites.add(self.player); self.player_group.add(self.player)
+        if hasattr(self.player, 'shield_sprite') and self.player.shield_sprite: self.all_sprites.add(self.player.shield_sprite)
+        self.game_state = PLAYING
+
+
+# --- Base Player Class ---
+class Player(pygame.sprite.Sprite):
+    def __init__(self, game_instance):
+        super().__init__(); self.game = game_instance; self.images = {}
+        self.image = None; self.rect = None; self.mask = None; self.speed = 300; self.health = 100; self.max_health = 100
+        self.velocity = pygame.Vector2(0, 0); self.facing_direction = 0; self.facing_suffix = '_n'
+    def setup_player(self, asset_key_base, initial_pos_key='midbottom', initial_pos_val=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 20)):
+        for angle_range, (index, suffix, vector) in DIRECTIONS.items():
+             asset_name = asset_key_base + suffix
+             if asset_name in generated_assets: self.images[suffix] = generated_assets[asset_name]
+             else: print(f"Error: Asset {asset_name} not found!"); self.images[suffix] = generated_assets.get(asset_key_base + '_n', pygame.Surface((32,32)))
+        self.image = self.images['_n']; self.facing_suffix = '_n'; self.rect = self.image.get_rect(**{initial_pos_key: initial_pos_val}); self.mask = pygame.mask.from_surface(self.image)
+    def set_facing_direction(self, direction_index, suffix):
+        if self.facing_suffix != suffix:
+            if suffix in self.images: self.image = self.images[suffix]; center = self.rect.center; self.rect = self.image.get_rect(center=center); self.mask = pygame.mask.from_surface(self.image); self.facing_suffix = suffix; self.facing_direction = direction_index
+    def update(self, dt):
+        should_move = True; is_bashing = hasattr(self, 'is_bashing') and self.is_bashing; is_ulting = hasattr(self, 'ultimate_active') and self.ultimate_active; is_aiming_reflector = False
+        if isinstance(self, ReflectorPlayer):
+             if pygame.mouse.get_pressed()[2]:
+                  keys = pygame.key.get_pressed()
+                  if keys[pygame.K_w] or keys[pygame.K_a] or keys[pygame.K_s] or keys[pygame.K_d]: is_aiming_reflector = True
+        if is_bashing or is_ulting or is_aiming_reflector: should_move = False
+        if should_move: self.handle_movement(dt)
+        else: self.velocity = pygame.Vector2(0, 0)
+        if not is_bashing: self.apply_movement(dt) # Bash applies its own movement
+        if self.velocity.length_squared() > 0.1:
+            move_angle_deg = math.degrees(math.atan2(-self.velocity.y, self.velocity.x)); dir_index, dir_suffix, _ = get_direction_from_angle(move_angle_deg); self.set_facing_direction(dir_index, dir_suffix)
+        self.rect.left = max(0, self.rect.left); self.rect.right = min(SCREEN_WIDTH, self.rect.right); self.rect.top = max(0, self.rect.top); self.rect.bottom = min(SCREEN_HEIGHT, self.rect.bottom)
+    def handle_movement(self, dt):
+        keys = pygame.key.get_pressed(); target_velocity = pygame.Vector2(0, 0)
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]: target_velocity.x = -1
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]: target_velocity.x = 1
+        if keys[pygame.K_UP] or keys[pygame.K_w]: target_velocity.y = -1
+        if keys[pygame.K_DOWN] or keys[pygame.K_s]: target_velocity.y = 1
+        if target_velocity.length_squared() > 0: target_velocity.normalize_ip()
+        current_speed = self.get_current_speed(); self.velocity = target_velocity * current_speed
+    def apply_movement(self, dt):
+         self.rect.center += self.velocity * dt
+    def get_current_speed(self): return self.speed
+    def take_damage(self, amount): self.health = max(0, self.health - amount);
+    def heal(self, amount): self.health = min(self.max_health, self.health + amount)
+    def handle_event(self, event): pass
+    def draw_hud(self, surface, font): pass # Use the passed font
+    def gain_wave_upgrade(self, wave_completed): pass
+
+
+# --- Player Subclasses ---
+
+class ShooterPlayer(Player):
+    def __init__(self, game_instance):
+        super().__init__(game_instance); self.setup_player('player_shooter', initial_pos_val=(SCREEN_WIDTH // 2, SCREEN_HEIGHT * 0.8))
+        self.base_speed = 380; self.speed = self.base_speed; self.boost_speed = 650; self.boosting = False; self.shoot_delay = 140; self.manual_shoot_delay = 140; self.homing_shoot_delay = 380
+        self.fire_mode = "manual"; self.manual_dps_factor = 1.5; self.homing_turn_rate = 6; self.last_shot = pygame.time.get_ticks()
+        self.has_fast_fire = False; self.has_double_shot = False; self.has_piercing = False; self.has_better_homing = False; self.has_ultimate = False; self.pierce_count = 0
+        self.ultimate_ready = True; self.ultimate_cooldown = 15000; self.last_ultimate = -self.ultimate_cooldown; self.ultimate_active = False; self.ultimate_duration = 3000; self.ultimate_timer = 0
+        self.ultimate_fire_rate = 50; self.ultimate_last_shot = 0; self.ultimate_angle = 0
+    def gain_wave_upgrade(self, wave_completed):
+        if wave_completed == 1: self.has_fast_fire = True; self.manual_shoot_delay *= 0.7; self.homing_shoot_delay *= 0.8; print("Shooter Upgrade: Faster Fire!")
+        elif wave_completed == 2: self.has_double_shot = True; print("Shooter Upgrade: Double Shot (Manual)!")
+        elif wave_completed == 3: self.has_piercing = True; self.pierce_count = 1; print("Shooter Upgrade: Piercing Shot (Manual)!")
+        elif wave_completed == 4: self.has_better_homing = True; self.homing_turn_rate *= 1.5; self.homing_shoot_delay *= 0.7; print("Shooter Upgrade: Improved Homing!")
+        elif wave_completed == 5: self.has_ultimate = True; self.ultimate_ready = True; print("Shooter Ultimate Ready: Bullet Vortex!")
+        if self.fire_mode == 'manual': self.shoot_delay = self.manual_shoot_delay
+        else: self.shoot_delay = self.homing_shoot_delay
+    def update(self, dt):
+        self.handle_boost_check(); super().update(dt);
+        if self.ultimate_active: self.update_ultimate(dt)
+        else: self.handle_shooting()
+    def get_current_speed(self): return self.boost_speed if self.boosting else self.base_speed
+    def handle_boost_check(self): keys = pygame.key.get_pressed(); self.boosting = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
+    def handle_shooting(self):
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_SPACE]:
+            now = pygame.time.get_ticks()
+            if now - self.last_shot > self.shoot_delay: self.last_shot = now; self.shoot()
+    def shoot(self):
+        spawn_pos = pygame.Vector2(self.rect.center) + pygame.Vector2(0, -15)
+        if self.fire_mode == "manual":
+            manual_aim_vector = pygame.Vector2(1, 0);
+            for _, (_, _, vector) in DIRECTIONS.items():
+                 if _ == self.facing_direction: manual_aim_vector = vector.copy(); break
+            bullet_speed = 700 * 1.4; spawn_offset_amount = 8
+            vel1 = manual_aim_vector * bullet_speed; bullet1 = Bullet(spawn_pos.x, spawn_pos.y, owner="player", velocity_vec=vel1); bullet1.damage *= self.manual_dps_factor
+            if self.has_piercing: bullet1.pierce_count = self.pierce_count
+            self.game.all_sprites.add(bullet1); self.game.player_bullets.add(bullet1)
+            if self.has_double_shot:
+                 offset_vec = pygame.Vector2(manual_aim_vector.y, -manual_aim_vector.x) * spawn_offset_amount; spawn_pos2 = spawn_pos + offset_vec; vel2 = manual_aim_vector * bullet_speed
+                 bullet2 = Bullet(spawn_pos2.x, spawn_pos2.y, owner="player", velocity_vec=vel2); bullet2.damage *= self.manual_dps_factor
+                 if self.has_piercing: bullet2.pierce_count = self.pierce_count
+                 self.game.all_sprites.add(bullet2); self.game.player_bullets.add(bullet2)
+        elif self.fire_mode == "homing":
+            target = self.game.find_nearest_enemy(self.rect.center)
+            if target: bullet = HomingBullet(spawn_pos.x, spawn_pos.y, target, self.homing_turn_rate, owner="player"); self.game.all_sprites.add(bullet); self.game.player_bullets.add(bullet)
+    def update_ultimate(self, dt):
+        now = pygame.time.get_ticks(); self.ultimate_timer -= dt * 1000
+        if self.ultimate_timer <= 0: self.ultimate_active = False; self.ultimate_ready = False; self.last_ultimate = now; print("Ultimate Finished"); return
+        if now - self.ultimate_last_shot > self.ultimate_fire_rate:
+            self.ultimate_last_shot = now; num_streams = 2
+            for i in range(num_streams):
+                 angle = self.ultimate_angle + (i * 360 / num_streams); vel_vec = pygame.Vector2(1, 0).rotate(angle) * 600
+                 bullet = Bullet(self.rect.centerx, self.rect.centery, owner="player", velocity_vec=vel_vec); bullet.damage = 8
+                 self.game.all_sprites.add(bullet); self.game.player_bullets.add(bullet)
+            self.ultimate_angle = (self.ultimate_angle + 15) % 360
+    def handle_event(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_m: self.fire_mode = "homing" if self.fire_mode == "manual" else "manual"; self.shoot_delay = self.homing_shoot_delay if self.fire_mode == "homing" else self.manual_shoot_delay; print(f"Switched to {self.fire_mode} mode")
+            elif event.key == pygame.K_r and self.has_ultimate:
+                 now = pygame.time.get_ticks()
+                 if now - self.last_ultimate > self.ultimate_cooldown: print("Activating Ultimate: Bullet Vortex!"); self.ultimate_active = True; self.ultimate_timer = self.ultimate_duration; self.ultimate_angle = 0; self.ultimate_ready = False;
+                 else: print("Ultimate not ready!")
+    def draw_hud(self, surface, font): # Use the passed font
+        mode_text = f"Mode: {self.fire_mode.capitalize()} (M)"; self.game.draw_text(mode_text, font, BLUE, surface, 10, 40)
+        if self.boosting: self.game.draw_text("Boosting!", font, YELLOW, surface, 10, 70)
+        if self.has_ultimate:
+             now = pygame.time.get_ticks(); time_since_last = now - self.last_ultimate; cooldown_pct = min(1.0, time_since_last / self.ultimate_cooldown) if self.ultimate_cooldown > 0 else 1.0
+             status_text = "Ready" if cooldown_pct >= 1.0 else f"{int((1.0-cooldown_pct)*self.ultimate_cooldown/1000)}s"
+             color = GREEN if cooldown_pct >= 1.0 else YELLOW; self.game.draw_text(f"Ultimate (R): {status_text}", font, color, surface, 10, 100)
+
+
+class HybridPlayer(Player):
+    def __init__(self, game_instance):
+        super().__init__(game_instance); self.setup_player('player_hybrid', initial_pos_val=(SCREEN_WIDTH // 2, SCREEN_HEIGHT * 0.8))
+        self.speed = 340; self.shield_max_health = 60; self.shield_health = self.shield_max_health; self.shield_regen_rate = 4; self.shield_active = False
+        self.shield_sprite = ShieldSprite(self, size=(70, 18), color=BLUE + (160,)); self.melee_range = 110; self.melee_width = 110; self.melee_damage = 35; self.melee_cooldown = 330
+        self.last_melee = 0; self.shield_recharge_on_melee = 8; self.current_shield_direction_4 = 0
+        self.has_thrust = False; self.has_lifesteal = False; self.has_spin_mode = False; self.has_block_recharge = False; self.has_ultimate = False
+        self.lifesteal_per_hit = 1.5; self.spin_mode_active = False; self.spin_damage = 50; self.spin_radius = 80; self.spin_speed_mult = 1.3; self.block_recharge_amount = 2
+        self.thrust_ready = True; self.thrust_cooldown = 2000; self.last_thrust = -self.thrust_cooldown; self.thrust_damage = 50; self.thrust_range = 180; self.thrust_width = 40
+        self.ultimate_ready = True; self.ultimate_cooldown = 20000; self.last_ultimate = -self.ultimate_cooldown; self.ultimate_active = False; self.ultimate_duration = 1500; self.ultimate_timer = 0
+        self.ultimate_slashes_done = 0; self.ultimate_slash_delay = 150; self.ultimate_last_slash = 0
+    def gain_wave_upgrade(self, wave_completed):
+        if wave_completed == 1: self.has_thrust = True; print("Hybrid Upgrade: Sword Thrust (E)!")
+        elif wave_completed == 2: self.has_lifesteal = True; print("Hybrid Upgrade: Lifesteal!")
+        elif wave_completed == 3: self.has_spin_mode = True; print("Hybrid Upgrade: Spin Attack Mode (T)!")
+        elif wave_completed == 4: self.has_block_recharge = True; print("Hybrid Upgrade: Shield Recharge on Block!")
+        elif wave_completed == 5: self.has_ultimate = True; self.ultimate_ready = True; print("Hybrid Ultimate Ready: Blade Dance (R)!")
+    def update(self, dt):
+         if self.ultimate_active: self.update_ultimate(dt)
+         elif self.spin_mode_active: self.update_spin_mode(dt)
+         else: super().update(dt); self.handle_shield_logic(dt)
+         if not self.shield_active and not self.spin_mode_active and self.shield_health < self.shield_max_health: self.shield_health = min(self.shield_max_health, self.shield_health + self.shield_regen_rate * dt)
+         if hasattr(self, 'shield_sprite') and self.shield_sprite:
+             if not self.spin_mode_active: self.shield_sprite.set_direction(self.current_shield_direction_4); self.shield_sprite.update_pos(); self.shield_sprite.visible = self.shield_active
+             else: self.shield_sprite.visible = False
+    def get_current_speed(self): base = super().get_current_speed(); return base * self.spin_speed_mult if self.spin_mode_active else base
+    def handle_shield_logic(self, dt):
+        if self.spin_mode_active or self.ultimate_active: self.shield_active = False; return
+        mouse_pressed = pygame.mouse.get_pressed(); is_moving = self.velocity.length_squared() > 0.5
+        self.shield_active = (mouse_pressed[2] or is_moving) and self.shield_health > 0
+        self.current_shield_direction_4 = SHIELD_DIR_MAP.get(self.facing_direction, 0)
+        if self.shield_active:
+            shield_hits = pygame.sprite.spritecollide(self.shield_sprite, self.game.enemy_bullets, False, pygame.sprite.collide_rect)
+            for bullet in shield_hits:
+                can_block = False; dx = bullet.rect.centerx - self.rect.centerx; dy = bullet.rect.centery - self.rect.centery
+                if dx == 0 and dy == 0: continue
+                angle_deg = math.degrees(math.atan2(-dy, dx)); shield_dir_4 = self.current_shield_direction_4
+                if shield_dir_4 == 0 and 40 < angle_deg < 140: can_block = True; 
+                elif shield_dir_4 == 1 and -50 < angle_deg < 50: can_block = True; 
+                elif shield_dir_4 == 2 and -140 < angle_deg < -40: can_block = True; 
+                elif shield_dir_4 == 3 and (angle_deg > 130 or angle_deg < -130): can_block = True
+                if can_block:
+                    self.shield_health -= bullet.damage; bullet.kill();
+                    if self.has_block_recharge: self.shield_health = min(self.shield_max_health, self.shield_health + self.block_recharge_amount)
+                    if self.shield_health <= 0: self.shield_health = 0; self.shield_active = False; print("Hybrid Shield broken!"); break
+    def update_spin_mode(self, dt):
+        super().update(dt)
+        spin_radius_sq = self.spin_radius**2; player_center = pygame.Vector2(self.rect.center); spin_dps = self.spin_damage * dt
+        for enemy in list(self.game.enemies):
+            dist_sq = (player_center - pygame.Vector2(enemy.rect.center)).length_squared()
+            if dist_sq < spin_radius_sq:
+                killed = enemy.take_damage(spin_dps, player_center)
+                if killed and self.has_lifesteal: self.heal(self.lifesteal_per_hit)
+        if self.game.boss and self.game.boss.alive():
+            dist_sq = (player_center - pygame.Vector2(self.game.boss.rect.center)).length_squared()
+            if dist_sq < spin_radius_sq: killed = self.game.boss.take_damage(spin_dps * 0.5, player_center)
+    def update_ultimate(self, dt):
+        self.ultimate_timer -= dt * 1000
+        if self.ultimate_timer <= 0: self.ultimate_active = False; self.last_ultimate = pygame.time.get_ticks(); print("Blade Dance Finished"); return
+        now = pygame.time.get_ticks()
+        if now - self.ultimate_last_slash > self.ultimate_slash_delay: self.melee_attack()
+    def handle_event(self, event):
+         if event.type == pygame.KEYDOWN:
+              if event.key == pygame.K_e and self.has_thrust: self.activate_thrust()
+              elif event.key == pygame.K_t and self.has_spin_mode: self.toggle_spin_mode()
+              elif event.key == pygame.K_r and self.has_ultimate: self.activate_ultimate()
+         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not self.ultimate_active and not self.spin_mode_active: self.melee_attack()
+
+    def activate_thrust(self): # CORRECTED
+        now = pygame.time.get_ticks()
+        if now - self.last_thrust > self.thrust_cooldown:
+            self.last_thrust = now; print("Sword Thrust!"); thrust_rect = pygame.Rect(0,0, self.thrust_width, self.thrust_range); direction_vector = pygame.Vector2(1,0)
+            for _,(_,_,vec) in DIRECTIONS.items():
+                if _ == self.facing_direction: direction_vector = vec.copy(); break
+            if abs(direction_vector.x) > abs(direction_vector.y): # Horizontal thrust
+                 thrust_rect = pygame.Rect(0,0, self.thrust_range, self.thrust_width) # Swap width/height
+                 if direction_vector.x > 0.5: thrust_rect.midleft = self.rect.midright # East
+                 else: thrust_rect.midright = self.rect.midleft # West
+            else: # Vertical thrust
+                 if direction_vector.y < -0.5: thrust_rect.midbottom = self.rect.midtop # North
+                 else: thrust_rect.midtop = self.rect.midbottom # South
+            enemies_hit_count = 0
+            for enemy in list(self.game.enemies):
+                if thrust_rect.colliderect(enemy.rect):
+                     killed = enemy.take_damage(self.thrust_damage, self.rect.center) # Assign killed
+                     if killed and self.has_lifesteal: self.heal(self.lifesteal_per_hit)
+                     enemies_hit_count += 1 # Increment regardless
+            killed_boss = False # Initialize boss kill status
+            if self.game.boss and self.game.boss.alive():
+                 if thrust_rect.colliderect(self.game.boss.rect):
+                      killed_boss = self.game.boss.take_damage(self.thrust_damage * 0.6, self.rect.center)
+            if enemies_hit_count > 0: print(f"Thrust hit {enemies_hit_count} enemies!")
+        else: print("Thrust not ready!")
+
+    def toggle_spin_mode(self):
+        self.spin_mode_active = not self.spin_mode_active; print(f"Spin Attack Mode: {'ACTIVE' if self.spin_mode_active else 'Inactive'}");
+        if self.spin_mode_active: self.shield_active = False
+    def activate_ultimate(self):
+         now = pygame.time.get_ticks()
+         if self.has_ultimate and now - self.last_ultimate > self.ultimate_cooldown: print("Activating Ultimate: Blade Dance!"); self.ultimate_active = True; self.ultimate_timer = self.ultimate_duration; self.ultimate_slashes_done = 0; self.ultimate_last_slash = now;
+         else: print("Ultimate not ready!")
+    def melee_attack(self): # CORRECTED
+         now = pygame.time.get_ticks(); can_melee = False
+         if self.ultimate_active:
+              if now - self.ultimate_last_slash > self.ultimate_slash_delay: can_melee = True; self.ultimate_last_slash = now
+         elif now - self.last_melee > self.melee_cooldown: can_melee = True; self.last_melee = now
+         if can_melee:
+              slash_angle_deg = 0; offset_distance = 40; direction_vector = pygame.Vector2(1, 0)
+              for _,(_, _, vector) in DIRECTIONS.items():
+                    if _ == self.facing_direction: direction_vector = vector.copy(); slash_angle_deg = -math.degrees(math.atan2(vector.y, vector.x)); break
+              slash_center_pos = pygame.Vector2(self.rect.center) + direction_vector * offset_distance; slash_effect = SwordSlash(slash_center_pos, slash_angle_deg); self.game.all_sprites.add(slash_effect); self.game.effects.add(slash_effect)
+              melee_hit_radius_sq = (self.melee_range)**2; player_center = pygame.Vector2(self.rect.center)
+              bullets_destroyed=0; enemies_hit_count=0
+              for bullet in list(self.game.enemy_bullets):
+                   dist_sq = (player_center - pygame.Vector2(bullet.rect.center)).length_squared() # Calculate dist_sq
+                   if dist_sq < melee_hit_radius_sq: bullet.kill(); bullets_destroyed += 1
+              for enemy in list(self.game.enemies):
+                   dist_sq = (player_center - pygame.Vector2(enemy.rect.center)).length_squared() # Calculate dist_sq
+                   if dist_sq < melee_hit_radius_sq:
+                       killed = enemy.take_damage(self.melee_damage, self.rect.center) # Assign killed
+                       if killed and self.has_lifesteal: self.heal(self.lifesteal_per_hit)
+                       enemies_hit_count += 1 # Increment hit count
+              killed_boss = False # Initialize boss kill status
+              if self.game.boss and self.game.boss.alive():
+                   dist_sq = (player_center - pygame.Vector2(self.game.boss.rect.center)).length_squared() # Calculate dist_sq
+                   if dist_sq < melee_hit_radius_sq: killed_boss = self.game.boss.take_damage(self.melee_damage * 0.5, self.rect.center)
+              recharge = enemies_hit_count * self.shield_recharge_on_melee; self.shield_health = min(self.shield_max_health, self.shield_health + recharge)
+    def take_damage(self, amount):
+        effective_shield_active = self.shield_active and not self.spin_mode_active and not self.ultimate_active
+        if not effective_shield_active: super().take_damage(amount)
+    def draw_hud(self, surface, font):
+        shield_pct = self.shield_health / self.shield_max_health if self.shield_max_health > 0 else 0
+        bar_w=100; bar_h=10; fill_w=int(bar_w * shield_pct); color = BLUE if self.shield_health > 0 else RED
+        outline_r = pygame.Rect(10, 40, bar_w, bar_h); fill_r = pygame.Rect(10, 40, fill_w, bar_h)
+        pygame.draw.rect(surface, color, fill_r); pygame.draw.rect(surface, WHITE, outline_r, 1); self.game.draw_text(f"Shield: {int(self.shield_health)}", font, WHITE, surface, 120, 38)
+        status_text = ""; status_color = WHITE
+        if self.ultimate_active: status_text = "BLADE DANCE!"; status_color = ORANGE
+        elif self.spin_mode_active: status_text = "Spin Mode (T)"; status_color = GREEN
+        elif self.shield_active: dirs_4 = ["Up", "Right", "Down", "Left"]; status_text = f"Shield: Block ({dirs_4[self.current_shield_direction_4]})"; status_color = BLUE
+        if status_text: self.game.draw_text(status_text, font, status_color, surface, 10, 70)
+        if self.has_thrust:
+            now = pygame.time.get_ticks(); time_since = now - self.last_thrust; ready = time_since > self.thrust_cooldown; thrust_status = "Ready" if ready else f"{int((self.thrust_cooldown - time_since)/1000)}s"; self.game.draw_text(f"Thrust (E): {thrust_status}", font, GREEN if ready else YELLOW, surface, 10, 100)
+        if self.has_ultimate:
+            now = pygame.time.get_ticks(); time_since = now - self.last_ultimate; ready = time_since > self.ultimate_cooldown; ult_status = "Ready" if ready else f"{int((self.ultimate_cooldown - time_since)/1000)}s"; self.game.draw_text(f"Ultimate (R): {ult_status}", font, GREEN if ready else YELLOW, surface, 10, 130)
+
+
+class ReflectorPlayer(Player):
+     def __init__(self, game_instance):
+        super().__init__(game_instance); self.setup_player('player_reflector', initial_pos_val=(SCREEN_WIDTH // 2, SCREEN_HEIGHT * 0.8))
+        self.speed = 320; self.shield_active = False; self.shield_direction = 0
+        self.shield_sprite = ShieldSprite(self, size=(90, 22), color=YELLOW + (190,))
+        self.shockwave_charge = 0; self.shockwave_max_charge = 100; self.shockwave_radius = 280; self.shockwave_damage = 60
+        self.block_damage_reduction = 0.80; self.block_charge_multiplier = 1.8; self.shockwave_heal_per_kill = 5
+        self.reflected_laser_damage = 100; self.charge_gain_laser = 15; self.charge_gain_reflect = 5; self.charge_gain_block_bullet = 1.5
+        self.has_shield_bash = False; self.has_aura = False; self.has_larger_shield = False; self.has_empowered_reflect = False; self.has_ultimate = False
+        self.bash_ready = True; self.bash_cooldown = 3000; self.last_bash = -self.bash_cooldown; self.bash_speed = 800; self.bash_duration = 0.2; self.bash_damage = 40; self.is_bashing = False; self.bash_timer = 0; self.bash_velocity = pygame.Vector2(0,0)
+        self.aura_tick_rate = 500; self.aura_last_tick = 0; self.aura_radius = 120; self.aura_damage = 5
+        self.ultimate_ready = True; self.ultimate_cooldown = 25000; self.last_ultimate = -self.ultimate_cooldown; self.ultimate_active = False; self.ultimate_duration = 2000; self.ultimate_timer = 0; self.ultimate_pull_strength = 300
+     def gain_wave_upgrade(self, wave_completed):
+        if wave_completed == 1: self.has_shield_bash = True; print("Reflector Upgrade: Shield Bash (E / LCtrl)!")
+        elif wave_completed == 2: self.has_aura = True; self.aura_last_tick = pygame.time.get_ticks(); print("Reflector Upgrade: Damage Aura!")
+        elif wave_completed == 3:
+            self.has_larger_shield = True
+            if hasattr(self, 'shield_sprite') and self.shield_sprite: self.shield_sprite.kill()
+            new_size = (int(90 * 1.3), int(22 * 1.3)); self.shield_sprite = ShieldSprite(self, size=new_size, color=YELLOW + (190,))
+            self.game.all_sprites.add(self.shield_sprite); print("Reflector Upgrade: Larger Shield!")
+        elif wave_completed == 4: self.has_empowered_reflect = True; print("Reflector Upgrade: Empowered Reflection!")
+        elif wave_completed == 5: self.has_ultimate = True; self.ultimate_ready = True; print("Reflector Ultimate Ready: Singularity Pulse (R)!")
+     def update(self, dt):
+        if self.is_bashing: self.update_bash(dt)
+        elif self.ultimate_active: self.update_ultimate(dt)
+        else: super().update(dt); self.handle_shield_logic(dt)
+        if self.has_aura and not self.is_bashing and not self.ultimate_active:
+            now = pygame.time.get_ticks()
+            if now - self.aura_last_tick > self.aura_tick_rate:
+                self.aura_last_tick = now; aura_radius_sq = self.aura_radius**2; center_pos = pygame.Vector2(self.rect.center)
+                for enemy in list(self.game.enemies):
+                     if (center_pos - pygame.Vector2(enemy.rect.center)).length_squared() < aura_radius_sq: enemy.take_damage(self.aura_damage, center_pos)
+                if self.game.boss and self.game.boss.alive():
+                     if (center_pos - pygame.Vector2(self.game.boss.rect.center)).length_squared() < aura_radius_sq: self.game.boss.take_damage(self.aura_damage * 0.5, center_pos)
+        if hasattr(self, 'shield_sprite') and self.shield_sprite: self.shield_sprite.update_pos(); self.shield_sprite.visible = self.shield_active or self.is_bashing
+     def update_bash(self, dt):
+         self.bash_timer -= dt
+         if self.bash_timer <= 0: self.is_bashing = False; self.velocity = pygame.Vector2(0, 0); self.bash_ready = False; self.last_bash = pygame.time.get_ticks(); print("Bash finished."); return
+         self.velocity = self.bash_velocity; super().apply_movement(dt) # Use base apply_movement
+         bash_hits = pygame.sprite.spritecollide(self, self.game.enemies, False, pygame.sprite.collide_mask)
+         for enemy in bash_hits: killed = enemy.take_damage(self.bash_damage, self.rect.center)
+         if self.game.boss and self.game.boss.alive() and pygame.sprite.collide_mask(self, self.game.boss): self.game.boss.take_damage(self.bash_damage * 0.7, self.rect.center)
+         if hasattr(self, 'shield_sprite') and self.shield_sprite:
+             bash_angle_deg = math.degrees(math.atan2(-self.bash_velocity.y, self.bash_velocity.x)); bash_dir_index, _, _ = get_direction_from_angle(bash_angle_deg)
+             bash_shield_dir_4 = SHIELD_DIR_MAP.get(bash_dir_index, 0)
+             if bash_shield_dir_4 != self.shield_direction: self.shield_direction = bash_shield_dir_4; self.shield_sprite.set_direction(self.shield_direction)
+     def update_ultimate(self, dt):
+         self.ultimate_timer -= dt * 1000
+         if self.ultimate_timer <= 0: self.ultimate_active = False; self.release_shockwave(is_ultimate=True); self.last_ultimate = pygame.time.get_ticks(); print("Singularity Pulse Finished"); return
+         pull_center = pygame.Vector2(self.rect.center); pull_radius_sq_max = (self.shockwave_radius * 1.5)**2; pull_radius_sq_min = 25*25
+         for enemy in list(self.game.enemies):
+             vec_to_player = pull_center - pygame.Vector2(enemy.rect.center); dist_sq = vec_to_player.length_squared()
+             if pull_radius_sq_min < dist_sq < pull_radius_sq_max: pull_force = vec_to_player.normalize() * self.ultimate_pull_strength * (1 - (dist_sq**0.5 / (self.shockwave_radius*1.5))); enemy.knockback_velocity += pull_force * dt
+         for bullet in list(self.game.enemy_bullets):
+             vec_to_player = pull_center - pygame.Vector2(bullet.rect.center); dist_sq = vec_to_player.length_squared()
+             if 10*10 < dist_sq < pull_radius_sq_max: pull_force = vec_to_player.normalize() * self.ultimate_pull_strength * 1.5; bullet.velocity = bullet.velocity.lerp(pull_force, 0.1)
+     def handle_shield_logic(self, dt):
+         if self.is_bashing or self.ultimate_active: self.shield_active = False; return
+         mouse_pressed = pygame.mouse.get_pressed(); keys = pygame.key.get_pressed(); is_aiming = mouse_pressed[2]; is_moving = self.velocity.length_squared() > 0.5
+         self.shield_active = is_aiming or is_moving; new_shield_direction_4 = self.shield_direction
+         if is_aiming:
+              aim_dir_8 = -1
+              if keys[pygame.K_w]: aim_dir_8 = 0;
+              elif keys[pygame.K_d]: aim_dir_8 = 2;
+              elif keys[pygame.K_s]: aim_dir_8 = 4; 
+              elif keys[pygame.K_a]: aim_dir_8 = 6
+              if aim_dir_8 != -1: new_shield_direction_4 = SHIELD_DIR_MAP.get(aim_dir_8, self.shield_direction)
+         elif is_moving: new_shield_direction_4 = SHIELD_DIR_MAP.get(self.facing_direction, 0)
+         if new_shield_direction_4 != self.shield_direction:
+             self.shield_direction = new_shield_direction_4
+             if hasattr(self, 'shield_sprite') and self.shield_sprite: self.shield_sprite.set_direction(self.shield_direction)
+         if self.shield_active and hasattr(self, 'shield_sprite') and self.shield_sprite: self.handle_shield_collisions()
+     def handle_shield_collisions(self):
+         hits = pygame.sprite.spritecollide(self.shield_sprite, self.game.enemy_bullets, False, pygame.sprite.collide_rect)
+         if not hits: return
+         for bullet in hits:
+             can_reflect = False; dx = bullet.rect.centerx - self.rect.centerx; dy = bullet.rect.centery - self.rect.centery
+             if dx == 0 and dy == 0: continue
+             angle_deg = math.degrees(math.atan2(-dy, dx)); shield_dir_4 = self.shield_direction
+             if shield_dir_4 == 0 and 40 < angle_deg < 140: can_reflect = True; 
+             elif shield_dir_4 == 1 and -50 < angle_deg < 50: can_reflect = True;
+             elif shield_dir_4 == 2 and -140 < angle_deg < -40: can_reflect = True; 
+             elif shield_dir_4 == 3 and (angle_deg > 130 or angle_deg < -130): can_reflect = True
+             if can_reflect: # REFLECT
+                 target = self.game.find_nearest_enemy(bullet.rect.center); reflect_damage_mult = 1.5 if self.has_empowered_reflect else 1.0
+                 if target: reflected_bullet = HomingBullet(bullet.rect.centerx, bullet.rect.centery, target, turn_rate=7, owner="reflected"); reflected_bullet.damage *= reflect_damage_mult; self.game.all_sprites.add(reflected_bullet); self.game.player_bullets.add(reflected_bullet)
+                 self.shockwave_charge = min(self.shockwave_max_charge, self.shockwave_charge + self.charge_gain_reflect); bullet.kill()
+             else: # BLOCK
+                 damage_taken = bullet.damage * (1.0 - self.block_damage_reduction); charge_gained = bullet.damage * self.charge_gain_block_bullet
+                 super().take_damage(damage_taken); self.shockwave_charge = min(self.shockwave_max_charge, self.shockwave_charge + charge_gained); bullet.kill()
+                 if self.shockwave_charge >= self.shockwave_max_charge: self.release_shockwave()
+     def reflect_laser(self, laser_enemy):
+         self.shockwave_charge = min(self.shockwave_max_charge, self.shockwave_charge + self.charge_gain_laser); print(f"Reflected Laser! Charge +{self.charge_gain_laser}")
+         laser_enemy.take_damage(self.reflected_laser_damage, self.rect.center)
+         if self.shockwave_charge >= self.shockwave_max_charge: self.release_shockwave()
+     def release_shockwave(self, is_ultimate=False):
+         if not is_ultimate and self.shockwave_charge < self.shockwave_max_charge: return
+         print("SHOCKWAVE!" + (" (Ultimate!)" if is_ultimate else "")); self.shockwave_charge = 0; center_pos = self.rect.center
+         radius = self.shockwave_radius * 1.3 if is_ultimate else self.shockwave_radius; damage = self.shockwave_damage * 1.5 if is_ultimate else self.shockwave_damage; heal_mult = 1.5 if is_ultimate else 1.0; radius_sq = radius**2
+         for bullet in list(self.game.enemy_bullets): dist_sq = (center_pos[0]-bullet.rect.centerx)**2 + (center_pos[1]-bullet.rect.centery)**2;
+         if dist_sq <= radius_sq: bullet.kill()
+         enemies_killed = 0
+         for enemy in list(self.game.enemies): dist_sq = (center_pos[0]-enemy.rect.centerx)**2 + (center_pos[1]-enemy.rect.centery)**2;
+         if dist_sq <= radius_sq: killed = enemy.take_damage(damage, center_pos);
+         if killed: enemies_killed += 1
+         if self.game.boss and self.game.boss.alive(): dist_sq = (center_pos[0]-self.game.boss.rect.centerx)**2 + (center_pos[1]-self.game.boss.rect.centery)**2;
+         if dist_sq <= radius_sq: self.game.boss.take_damage(damage * 0.5, center_pos)
+         heal_amount = enemies_killed * self.shockwave_heal_per_kill * heal_mult; self.heal(heal_amount); print(f"Shockwave killed {enemies_killed} enemies! Healed {heal_amount}")
+     def activate_bash(self):
+         now = pygame.time.get_ticks()
+         if now - self.last_bash > self.bash_cooldown:
+             print("Activating Shield Bash!"); self.last_bash = now; self.is_bashing = True; self.bash_timer = self.bash_duration; direction_vector = pygame.Vector2(1,0)
+             for _,(_,_,vec) in DIRECTIONS.items():
+                 if _ == self.facing_direction: direction_vector = vec.copy(); break
+             self.bash_velocity = direction_vector * self.bash_speed; self.velocity = self.bash_velocity; self.shield_active = True
+         else: print("Bash not ready!")
+     def activate_ultimate(self):
+         now = pygame.time.get_ticks()
+         if self.has_ultimate and now - self.last_ultimate > self.ultimate_cooldown: print("Activating Ultimate: Singularity Pulse!"); self.ultimate_active = True; self.ultimate_timer = self.ultimate_duration; self.velocity = pygame.Vector2(0,0)
+         else: print("Ultimate not ready!")
+     def handle_event(self, event):
+         if event.type == pygame.KEYDOWN:
+             if (event.key == pygame.K_e or event.key == pygame.K_LCTRL) and self.has_shield_bash and not self.is_bashing and not self.ultimate_active: self.activate_bash()
+             elif event.key == pygame.K_r and self.has_ultimate and not self.is_bashing and not self.ultimate_active: self.activate_ultimate()
+     def take_damage(self, amount):
+        if not self.shield_active or self.is_bashing or self.ultimate_active: super().take_damage(amount)
+     def draw_hud(self, surface, font):
+        charge_pct = self.shockwave_charge / self.shockwave_max_charge if self.shockwave_max_charge > 0 else 0
+        bar_w=100; bar_h=10; fill_w=int(bar_w * charge_pct); color = YELLOW if charge_pct < 1 else ORANGE
+        outline_r = pygame.Rect(10, 40, bar_w, bar_h); fill_r = pygame.Rect(10, 40, fill_w, bar_h)
+        pygame.draw.rect(surface, color, fill_r); pygame.draw.rect(surface, WHITE, outline_r, 1); self.game.draw_text(f"Charge: {int(self.shockwave_charge)}", font, WHITE, surface, 120, 38)
+        if self.shield_active: dirs_4 = ["Up", "Right", "Down", "Left"]; mode = "Aim" if pygame.mouse.get_pressed()[2] else "Move"; self.game.draw_text(f"Shield: {mode} ({dirs_4[self.shield_direction]})", font, YELLOW, surface, 10, 70)
+        if self.has_shield_bash: now = pygame.time.get_ticks(); time_since = now - self.last_bash; ready = time_since > self.bash_cooldown; bash_status = "Ready" if ready else f"{int((self.bash_cooldown - time_since)/1000)}s"; self.game.draw_text(f"Bash (E): {bash_status}", font, GREEN if ready else YELLOW, surface, 10, 100)
+        if self.has_ultimate: now = pygame.time.get_ticks(); time_since = now - self.last_ultimate; ready = time_since > self.ultimate_cooldown; ult_status = "Ready" if ready else f"{int((self.ultimate_cooldown - time_since)/1000)}s"; self.game.draw_text(f"Ultimate (R): {ult_status}", font, GREEN if ready else YELLOW, surface, 10, 130)
+
+
+# --- Shield Sprite ---
+class ShieldSprite(pygame.sprite.Sprite):
+    def __init__(self, player, size=(60, 15), color=BLUE + (150,)):
+        super().__init__(); self.player = player; self.color = color; self.base_size = size; self.base_image = pygame.Surface(self.base_size, pygame.SRCALPHA); self.base_image.fill(self.color); border_color = WHITE + (200,); pygame.draw.rect(self.base_image, border_color, self.base_image.get_rect(), 2); self.image = self.base_image; self.rect = self.image.get_rect(); self.visible = False; self.direction = 0; self.set_direction(0)
+    def update(self, dt): pass
+    def update_pos(self):
+        if not self.player or not self.player.alive(): return
+        offset = 8; center_offset_v = 0; p_mt = self.player.rect.midtop; p_mr = self.player.rect.midright; p_mb = self.player.rect.midbottom; p_ml = self.player.rect.midleft
+        if self.direction == 0: self.rect.midbottom = p_mt - pygame.Vector2(0, offset)
+        elif self.direction == 1: self.rect.midleft = p_mr + pygame.Vector2(offset, center_offset_v)
+        elif self.direction == 2: self.rect.midtop = p_mb + pygame.Vector2(0, offset)
+        elif self.direction == 3: self.rect.midright = p_ml - pygame.Vector2(offset, center_offset_v)
+        if not self.visible: self.rect.center = (-200, -200)
+    def set_direction(self, direction):
+         self.direction = direction; angle = 0;
+         if direction == 1: angle = -90; 
+         elif direction == 2: angle = 180; 
+         elif direction == 3: angle = 90
+         old_center = self.rect.center; self.image = pygame.transform.rotate(self.base_image, angle); self.rect = self.image.get_rect(center=old_center)
+
+
+# --- Sword Slash Effect ---
+class SwordSlash(pygame.sprite.Sprite):
+    def __init__(self, center_pos, angle):
+        super().__init__(); self.frames = generated_assets.get('sword_slash_frames', [])
+        self.num_frames = len(self.frames)
+        if not self.frames or self.num_frames == 0: self.image = pygame.Surface((50,50), pygame.SRCALPHA); self.image.fill(WHITE); self.num_frames = 1; self.frames=[self.image]; print("Warning: Sword slash frames not found/empty, using placeholder.")
+        self.image = self.frames[0]; self.rect = self.image.get_rect(center=center_pos); self.angle = angle; self.max_life = 0.25; self.life_timer = self.max_life
+        self.current_frame_index = 0; self.frame_duration = self.max_life / self.num_frames if self.num_frames > 0 else self.max_life; self.frame_timer = self.frame_duration
+        if self.frames: self.image = pygame.transform.rotate(self.frames[self.current_frame_index], self.angle); self.rect = self.image.get_rect(center=center_pos)
+    def update(self, dt):
+        self.life_timer -= dt
+        if self.life_timer <= 0: self.kill(); return
+        if self.num_frames > 1:
+            self.frame_timer -= dt
+            if self.frame_timer <= 0:
+                self.frame_timer += self.frame_duration; self.current_frame_index += 1
+                if self.current_frame_index >= self.num_frames: self.kill(); return
+                center = self.rect.center; self.image = pygame.transform.rotate(self.frames[self.current_frame_index], self.angle); self.rect = self.image.get_rect(center=center)
+
+
+# --- Bullet Classes ---
+class Bullet(pygame.sprite.Sprite):
+    def __init__(self, x, y, owner="player", speed_mult=1.0, velocity_vec=None):
+        super().__init__(); self.owner = owner; self.speed_multiplier = speed_mult
+        spawn_pos_key = 'center'; self.pierce_count = 0
+        if self.owner == "player": self.image = generated_assets['bullet_player']; self.base_speed = 700; default_vel = pygame.Vector2(0, -1)
+        elif self.owner == "reflected": self.image = generated_assets['bullet_player']; self.base_speed = 600; default_vel = pygame.Vector2(0, -1)
+        else: self.image = generated_assets['bullet_enemy']; self.base_speed = 400; default_vel = pygame.Vector2(0, 1); spawn_pos_key = 'midtop'
+        if self.owner == "player": self.damage = 12; 
+        elif self.owner == "reflected": self.damage = 16; 
+        else: self.damage = 10
+        self.rect = self.image.get_rect(**{spawn_pos_key:(x,y)}); self.speed = self.base_speed * self.speed_multiplier
+        self.velocity = pygame.Vector2(velocity_vec if velocity_vec is not None else default_vel * self.speed)
+    def update(self, dt):
+        self.rect.center += self.velocity * dt
+        if self.rect.bottom < -50 or self.rect.top > SCREEN_HEIGHT + 50 or self.rect.right < -50 or self.rect.left > SCREEN_WIDTH + 50: self.kill()
+
+class HomingBullet(Bullet):
+    def __init__(self, x, y, target_enemy, turn_rate, owner="player"):
+        speed_mult = 0.8 if owner == "player" else 0.9; super().__init__(x, y, owner=owner, speed_mult=speed_mult)
+        self.target = target_enemy; self.turn_rate = turn_rate; self.damage = 10 if owner == "player" else 16
+    def update(self, dt):
+        if self.target and self.target.alive() and self.target.state != "entering":
+            target_pos = pygame.Vector2(self.target.rect.center); current_pos = pygame.Vector2(self.rect.center); direction_to_target = target_pos - current_pos
+            if direction_to_target.length() > 0: direction_to_target.normalize_ip()
+            if self.velocity.length() > 0: current_direction = self.velocity.normalize()
+            else: current_direction = pygame.Vector2(0, -1 if self.owner=="player" else 1)
+            try:
+                 dot_prod = max(-1, min(1, current_direction.dot(direction_to_target))); angle_diff_rad = math.acos(dot_prod)
+                 cross_prod = current_direction.x * direction_to_target.y - current_direction.y * direction_to_target.x
+                 if cross_prod < 0: angle_diff_rad *= -1
+                 max_turn_rad = self.turn_rate * dt; turn_angle_rad = max(min(angle_diff_rad, max_turn_rad), -max_turn_rad)
+                 self.velocity = self.velocity.rotate(math.degrees(turn_angle_rad))
+                 if self.velocity.length() > 0: self.velocity.scale_to_length(self.speed)
+            except ValueError: pass
+        super().update(dt)
+
+
+# --- Enemy Classes ---
+class Enemy(pygame.sprite.Sprite):
+    def __init__(self, game_instance):
+        super().__init__(); self.game = game_instance; self.image = None; self.rect = None; self.health = 10; self.max_health = 10; self.score_value = 10
+        self.state = "entering"; self.target_pos = None; self.velocity = pygame.Vector2(0, 0); self.speed = 100; self.enter_speed = 150; self.enter_y_threshold = SCREEN_HEIGHT * random.uniform(0.1, 0.25)
+        self.flash_timer = 0.0; self.flash_duration = 0.1; self.knockback_velocity = pygame.Vector2(0, 0); self.knockback_friction = 0.80; self.knockback_strength = 180
+    def update(self, dt):
+        if self.state == "entering": self.enter_update(dt)
+        elif self.state == "engaging": self.engage_update(dt)
+        total_velocity = self.velocity + self.knockback_velocity; self.rect.center += total_velocity * dt
+        decay_factor = (1.0 - self.knockback_friction) * 60 * dt
+        if decay_factor < 1.0: self.knockback_velocity *= max(0, 1.0 - decay_factor)
+        else: self.knockback_velocity = pygame.Vector2(0, 0)
+        if self.knockback_velocity.length_squared() < 1: self.knockback_velocity = pygame.Vector2(0, 0)
+        if self.flash_timer > 0: self.flash_timer -= dt
+        if not self.game.screen.get_rect().colliderect(self.rect.inflate(100,100)):
+             if self.state != "entering": self.kill()
+    def enter_update(self, dt):
+        self.velocity = pygame.Vector2(0, self.enter_speed)
+        if self.rect.centery > self.enter_y_threshold: self.state = "engaging"; self.velocity = pygame.Vector2(0, 0)
+    def engage_update(self, dt): self.velocity = pygame.Vector2(0, 0); pass
+    def take_damage(self, amount, damage_source_pos=None): # Returns True if killed
+        if not self.alive(): return False
+        was_alive = True; self.health -= amount; self.flash_timer = self.flash_duration
+        if damage_source_pos:
+             direction_from_source = pygame.Vector2(self.rect.center) - pygame.Vector2(damage_source_pos)
+             if direction_from_source.length_squared() > 0: self.knockback_velocity += direction_from_source.normalize() * self.knockback_strength
+        if self.health <= 0:
+             if was_alive: self.game.score += self.score_value; self.kill(); return True
+        return False
+    def shoot(self): bullet = Bullet(self.rect.centerx, self.rect.bottom, owner="enemy"); self.game.all_sprites.add(bullet); self.game.enemy_bullets.add(bullet)
+    def draw(self, surface):
+        surface.blit(self.image, self.rect)
+        if self.flash_timer > 0: flash_surf = self.image.copy(); flash_surf.fill(DAMAGE_FLASH_COLOR[:3] + (0,), special_flags=pygame.BLEND_RGBA_ADD); surface.blit(flash_surf, self.rect)
+
+
+class BasicEnemy(Enemy):
+    def __init__(self, game_instance):
+        super().__init__(game_instance); self.image = generated_assets['enemy_basic']; self.rect = self.image.get_rect(centerx=random.randrange(50, SCREEN_WIDTH - 50), bottom=random.randrange(-80, -20))
+        self.health = 40; self.max_health = 40; self.score_value = 10; self.speed = random.uniform(90, 130); self.shoot_delay = random.randrange(1400, 2600); self.last_shot = pygame.time.get_ticks() + random.randrange(0, self.shoot_delay)
+        self.circle_radius = random.uniform(120, 280); self.orbit_direction = random.choice([1, -1]); self.enter_y_threshold = SCREEN_HEIGHT * random.uniform(0.15, 0.30); self.knockback_strength = 150
+    def engage_update(self, dt):
+        player = self.game.player
+        if player and player.alive():
+            player_pos = pygame.Vector2(player.rect.center); self_pos = pygame.Vector2(self.rect.center); vec_to_player = player_pos - self_pos; dist_to_player = vec_to_player.length();
+            if dist_to_player < 1: dist_to_player = 1
+            target_dir = vec_to_player.normalize(); tangent_dir = pygame.Vector2(-target_dir.y, target_dir.x) * self.orbit_direction; radius_error = dist_to_player - self.circle_radius; target_vel = (tangent_dir * self.speed) + (target_dir * -radius_error * 0.5)
+            self.velocity = self.velocity.lerp(target_vel, 0.08); now = pygame.time.get_ticks()
+            if now - self.last_shot > self.shoot_delay: self.last_shot = now; self.shoot()
+        else: self.velocity = self.velocity.lerp(pygame.Vector2(0, 50), 0.01)
+
+class StraferEnemy(Enemy):
+    def __init__(self, game_instance):
+        super().__init__(game_instance); self.image = generated_assets['enemy_strafer']; self.rect = self.image.get_rect(centerx=random.randrange(50, SCREEN_WIDTH - 50), bottom=random.randrange(-80, -20))
+        self.health = 60; self.max_health = 60; self.score_value = 15; self.strafe_speed = random.uniform(200, 280); self.vertical_speed = random.uniform(40, 70); self.shoot_delay = random.randrange(1700, 2900); self.last_shot = pygame.time.get_ticks() + random.randrange(0, self.shoot_delay)
+        self.strafe_direction = random.choice([1, -1]); self.target_y_offset = random.uniform(-180, -100); self.enter_y_threshold = SCREEN_HEIGHT * random.uniform(0.1, 0.2); self.knockback_strength = 180
+    def engage_update(self, dt):
+        player = self.game.player; target_y = self.rect.centery
+        if player and player.alive(): target_y = player.rect.centery + self.target_y_offset
+        vy = self.velocity.y; y_diff = target_y - self.rect.centery; vy += y_diff * 0.05; vy = max(-self.vertical_speed, min(self.vertical_speed, vy)); vx = self.strafe_speed * self.strafe_direction
+        if (self.rect.left < 10 and self.strafe_direction < 0) or (self.rect.right > SCREEN_WIDTH - 10 and self.strafe_direction > 0): self.strafe_direction *= -1; vx = self.strafe_speed * self.strafe_direction
+        self.velocity = pygame.Vector2(vx, vy); now = pygame.time.get_ticks()
+        if now - self.last_shot > self.shoot_delay: self.last_shot = now; self.shoot()
+
+class ChargerEnemy(Enemy):
+     def __init__(self, game_instance):
+         super().__init__(game_instance); self.image = generated_assets['enemy_charger']; self.original_image = self.image; self.rect = self.image.get_rect(centerx=random.randrange(100, SCREEN_WIDTH - 100), bottom=random.randrange(-100, -40))
+         self.health = 120; self.max_health = 120; self.score_value = 20; self.enter_speed = 130; self.charge_speed = 650; self.aim_time = 0.8; self.aim_timer = 0; self.aim_flash_interval = 0.08; self.aim_flash_timer = 0
+         self.state = "entering"; self.enter_y_threshold = SCREEN_HEIGHT * random.uniform(0.1, 0.2); self.knockback_strength = 80
+     def update(self, dt):
+         player = self.game.player; current_velocity = self.velocity; current_image = self.original_image
+         if self.state == "entering":
+             current_velocity = pygame.Vector2(0, self.enter_speed)
+             if self.rect.centery > self.enter_y_threshold: self.state = "aiming"; self.aim_timer = self.aim_time; current_velocity = pygame.Vector2(0, 0)
+         elif self.state == "aiming":
+             self.aim_timer -= dt; self.aim_flash_timer += dt
+             if self.aim_flash_timer > self.aim_flash_interval: self.aim_flash_timer = 0
+             if int(self.aim_flash_timer / (self.aim_flash_interval / 2)) % 2 == 0: temp_img = self.original_image.copy(); temp_img.fill(YELLOW + (80,), special_flags=pygame.BLEND_RGBA_ADD); current_image = temp_img
+             if self.aim_timer <= 0:
+                  self.state = "charging"; target_pos = pygame.Vector2(player.rect.center) if player and player.alive() else pygame.Vector2(self.rect.centerx, SCREEN_HEIGHT + 100)
+                  direction = (target_pos - pygame.Vector2(self.rect.center));
+                  if direction.length() > 0: direction.normalize_ip()
+                  current_velocity = direction * self.charge_speed
+         elif self.state == "charging": pass
+         self.image = current_image; self.velocity = current_velocity; super().update(dt)
+     def shoot(self): pass; 
+     def engage_update(self, dt): pass
+
+class LaserEnemy(Enemy):
+     def __init__(self, game_instance):
+         super().__init__(game_instance); self.image = generated_assets['enemy_laser']; self.original_image = self.image; self.rect = self.image.get_rect(centerx=random.randrange(150, SCREEN_WIDTH - 150), bottom=random.randrange(-80, -30))
+         self.health = 80; self.max_health = 80; self.score_value = 25; self.enter_speed = 90; self.move_speed_y = 0; self.charge_time = 1.5; self.fire_time = 0.8; self.cooldown_time = random.uniform(2.8, 4.0)
+         self.timer = 0; self.laser_target_x = None; self.laser_width = 14; self.laser_indicator_width = 4; self.laser_damage_dps = 80
+         self.state = "entering"; self.enter_y_threshold = SCREEN_HEIGHT * random.uniform(0.1, 0.3); self.idle_timer = 0; self.pulse_timer = 0; self.knockback_strength = 100
+     def update(self, dt):
+          player = self.game.player; current_velocity = self.velocity
+          if self.state == "entering":
+              current_velocity = pygame.Vector2(0, self.enter_speed)
+              if self.rect.centery > self.enter_y_threshold: self.state = "idling"; current_velocity = pygame.Vector2(0, 0); self.idle_timer = random.uniform(0.4, 1.2)
+          elif self.state == "idling":
+                self.idle_timer -= dt
+                if self.idle_timer <= 0: self.state = "charging"; self.timer = self.charge_time; current_velocity = pygame.Vector2(0,0)
+                if self.laser_target_x is None: self.laser_target_x = player.rect.centerx if player and player.alive() else self.rect.centerx
+          elif self.state == "charging":
+              self.timer -= dt; self.pulse_timer += dt * 10
+              if player and player.alive(): target_x = player.rect.centerx; lerp_factor = 0.05; self.laser_target_x += (target_x - self.laser_target_x) * lerp_factor * (60*dt) # Frame-rate adjust approx
+              if self.timer <= 0: self.state = "firing"; self.timer = self.fire_time; self.image = self.original_image; self.pulse_timer = 0
+          elif self.state == "firing":
+              self.timer -= dt; self.check_laser_hit(dt)
+              if self.timer <= 0: self.state = "cooldown"; self.timer = self.cooldown_time
+          elif self.state == "cooldown":
+              self.timer -= dt
+              if self.timer <= 0: self.state = "idling"; self.idle_timer = random.uniform(0.8, 2.0); self.laser_target_x = None
+          self.velocity = current_velocity; super().update(dt)
+     def shoot(self): pass; 
+     def engage_update(self, dt): pass
+     def draw_laser_indicator(self, surface):
+          if self.laser_target_x is not None and self.state == "charging": start_pos = self.rect.midbottom; end_pos = (self.laser_target_x, SCREEN_HEIGHT); alpha = int(100 + abs(math.sin(self.pulse_timer)) * 120); line_color = RED + (alpha,); 
+          try: pygame.draw.line(surface, line_color, start_pos, end_pos, self.laser_indicator_width); 
+          except Exception as e: pass
+     def draw_laser_beam(self, surface):
+          if self.laser_target_x is not None and self.state == "firing": start_pos = self.rect.midbottom; end_pos = (self.laser_target_x, SCREEN_HEIGHT); pygame.draw.line(surface, (255, 120, 120), start_pos, end_pos, self.laser_width); pygame.draw.line(surface, WHITE, start_pos, end_pos, self.laser_width // 2 + 1)
+     def check_laser_hit(self, dt): # CORRECTED
+          player = self.game.player
+          if not player or not player.alive() or self.laser_target_x is None: return
+          laser_rect = pygame.Rect(self.laser_target_x - self.laser_width//2, self.rect.bottom, self.laser_width, SCREEN_HEIGHT - self.rect.bottom)
+          if player.rect.colliderect(laser_rect):
+                can_damage_player = True
+                if isinstance(player, ReflectorPlayer) and player.shield_active and player.shield_direction == 0:
+                     can_damage_player = False; player.reflect_laser(self); self.state = "cooldown"; self.timer = self.cooldown_time * 0.5; self.image = self.original_image
+                elif isinstance(player, HybridPlayer) and player.shield_active:
+                     shield_dir_4 = SHIELD_DIR_MAP.get(player.facing_direction, 0) # Calculate here
+                     if shield_dir_4 == 0: # Check if shield is facing Up
+                          can_damage_player = False
+                if can_damage_player: player.take_damage(self.laser_damage_dps * dt)
+     def draw(self, surface):
+         current_img = self.original_image
+         if self.state == "charging": pulse = abs(math.sin(self.pulse_timer)); temp_img = self.original_image.copy(); tint_color = PURPLE[:3] + (int(pulse * 70),); temp_img.fill(tint_color, special_flags=pygame.BLEND_RGBA_ADD); current_img = temp_img
+         surface.blit(current_img, self.rect)
+         if self.flash_timer > 0: flash_surf = self.original_image.copy(); flash_surf.fill(DAMAGE_FLASH_COLOR[:3] + (0,), special_flags=pygame.BLEND_RGBA_ADD); surface.blit(flash_surf, self.rect)
+
+
+# --- Boss Class ---
+class BossEnemy(Enemy):
+    def __init__(self, game_instance):
+        super().__init__(game_instance); self.image = generated_assets.get('boss_main', pygame.Surface((120,100))); self.original_image = self.image; self.rect = self.image.get_rect(centerx=SCREEN_WIDTH / 2, bottom = -50)
+        self.health = 1500; self.max_health = 1500; self.score_value = 500; self.state = "entering"; self.enter_target_y = SCREEN_HEIGHT * 0.2; self.move_speed = 100; self.target_pos = pygame.Vector2(SCREEN_WIDTH / 2, self.enter_target_y)
+        self.attack_timer = 0; self.attack_pattern = 0; self.last_shot_time = 0; self.burst_count = 0; self.knockback_strength = 20
+    def enter_scene(self): self.state = "entering"; self.rect.centerx = SCREEN_WIDTH / 2; self.rect.bottom = -50; self.target_pos = pygame.Vector2(SCREEN_WIDTH / 2, self.enter_target_y)
+    def update(self, dt):
+        if self.state == "entering": self.enter_update(dt)
+        elif self.state == "phase1": self.phase1_update(dt)
+        total_velocity = self.velocity + self.knockback_velocity; self.rect.center += total_velocity * dt
+        decay_factor = (1.0 - self.knockback_friction) * 60 * dt
+        if decay_factor < 1.0: self.knockback_velocity *= max(0, 1.0 - decay_factor)
+        else: self.knockback_velocity = pygame.Vector2(0, 0)
+        if self.knockback_velocity.length_squared() < 1: self.knockback_velocity = pygame.Vector2(0, 0)
+        if self.flash_timer > 0: self.flash_timer -= dt
+    def enter_update(self, dt):
+        target_vec = self.target_pos - pygame.Vector2(self.rect.center)
+        if target_vec.length_squared() > 5*5: self.velocity = target_vec.normalize() * self.move_speed * 1.5
+        else: self.velocity = pygame.Vector2(0, 0); self.rect.centery = self.target_pos.y; self.state = "phase1"; print("Boss entered Phase 1"); self.attack_timer = random.uniform(1.0, 2.0)
+    def phase1_update(self, dt):
+        target_x = self.target_pos.x
+        if (self.rect.centerx > SCREEN_WIDTH * 0.8 and self.velocity.x >= 0) or \
+           (self.rect.centerx < SCREEN_WIDTH * 0.2 and self.velocity.x <= 0): target_x = SCREEN_WIDTH * 0.2 if self.rect.centerx > SCREEN_WIDTH/2 else SCREEN_WIDTH * 0.8
+        self.target_pos.x = target_x; target_vec = self.target_pos - pygame.Vector2(self.rect.center); target_vec.y = 0
+        if target_vec.length_squared() > 10*10: self.velocity = target_vec.normalize() * self.move_speed
+        else: self.velocity = pygame.Vector2(0,0)
+        self.attack_timer -= dt
+        if self.attack_timer <= 0: pattern_choice = random.choice([self.shoot_burst, self.shoot_spread]); pattern_choice(); self.attack_timer = random.uniform(2.0, 3.5)
+    def shoot_burst(self):
+        player = self.game.player; start_pos = pygame.Vector2(self.rect.center)
+        if not player or not player.alive(): return
+        target_pos = pygame.Vector2(player.rect.center); direction = (target_pos - start_pos)
+        if direction.length() > 0: direction.normalize_ip()
+        num_bullets = 3;
+        for i in range(num_bullets):
+             bullet = Bullet(start_pos.x, start_pos.y, owner="enemy", velocity_vec=direction * 500)
+             bullet.image = generated_assets.get('bullet_boss', bullet.image); bullet.damage = 18; self.game.all_sprites.add(bullet); self.game.enemy_bullets.add(bullet)
+    def shoot_spread(self):
+        start_pos = pygame.Vector2(self.rect.center); num_bullets = 7; total_angle = 90; angle_step = total_angle / (num_bullets - 1); base_angle = -90
+        for i in range(num_bullets):
+             angle = base_angle - total_angle / 2 + i * angle_step; vel_vec = pygame.Vector2(1, 0).rotate(angle) * 400
+             bullet = Bullet(start_pos.x, start_pos.y, owner="enemy", velocity_vec=vel_vec)
+             bullet.image = generated_assets.get('bullet_boss', bullet.image); bullet.damage = 12; self.game.all_sprites.add(bullet); self.game.enemy_bullets.add(bullet)
+    def take_damage(self, amount, damage_source_pos=None): # Returns True if killed
+        if not self.alive(): return False
+        was_alive = True; self.health -= amount; self.flash_timer = self.flash_duration
+        if damage_source_pos:
+             direction_from_source = pygame.Vector2(self.rect.center) - pygame.Vector2(damage_source_pos)
+             if direction_from_source.length_squared() > 0: self.knockback_velocity += direction_from_source.normalize() * (self.knockback_strength * 0.3)
+        if self.health <= 0:
+            if was_alive: self.game.score += self.score_value; self.kill(); print("Boss Killed Sequence Started"); return True
+        return False
+    def draw(self, surface): super().draw(surface)
+    def shoot(self): pass
+
+
+# --- Main Execution ---
+if __name__ == "__main__":
+    game = Game()
+    game.run()
