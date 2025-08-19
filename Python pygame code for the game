@@ -45,7 +45,7 @@ def generate_assets():
         assets[base_key + '_w'] = pygame.transform.rotate(base_img, 90)
         assets[base_key + '_nw'] = pygame.transform.rotate(base_img, 45)
 
-    # --- Player Ships (More Detail) ---
+    # --- Player Ships ---
     # Shooter 
     img_base = pygame.Surface((50, 45), pygame.SRCALPHA) 
     ship_body = [(25, 0), (5, 30), (15, 28), (35, 28), (45, 30)]
