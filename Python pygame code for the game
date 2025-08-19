@@ -31,7 +31,6 @@ BORDER_GLOW_COLOR = CYAN
 # --- Asset Generation ---
 def generate_assets():
     assets = {}
-    print("Generating enhanced assets...")
 
     # --- Helper for 8-dir rotation ---
     def create_directional_assets(base_key, base_img):
