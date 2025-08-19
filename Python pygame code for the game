@@ -25,10 +25,10 @@ DARK_RED = (150, 0, 0)
 DARK_GREEN = (0, 100, 0)
 DARK_BLUE = (0, 0, 150)
 DARK_YELLOW = (200, 200, 0)
-DAMAGE_FLASH_COLOR = WHITE + (150,) # Brighter flash now
-BORDER_GLOW_COLOR = CYAN # Example glow color
+DAMAGE_FLASH_COLOR = WHITE + (150,) 
+BORDER_GLOW_COLOR = CYAN 
 
-# --- Asset Generation (Heavily Modified) ---
+# --- Asset Generation ---
 def generate_assets():
     assets = {}
     print("Generating enhanced assets...")
@@ -37,7 +37,7 @@ def generate_assets():
     def create_directional_assets(base_key, base_img):
         # Store original as North
         assets[base_key + '_n'] = base_img
-        # Generate rotated versions (may distort, but better base helps)
+        # Generate rotated versions 
         assets[base_key + '_ne'] = pygame.transform.rotate(base_img, -45)
         assets[base_key + '_e'] = pygame.transform.rotate(base_img, -90)
         assets[base_key + '_se'] = pygame.transform.rotate(base_img, -135)
@@ -47,8 +47,8 @@ def generate_assets():
         assets[base_key + '_nw'] = pygame.transform.rotate(base_img, 45)
 
     # --- Player Ships (More Detail) ---
-    # Shooter (More angular, distinct engine)
-    img_base = pygame.Surface((50, 45), pygame.SRCALPHA) # Slightly taller for engine
+    # Shooter 
+    img_base = pygame.Surface((50, 45), pygame.SRCALPHA) 
     ship_body = [(25, 0), (5, 30), (15, 28), (35, 28), (45, 30)]
     pygame.draw.polygon(img_base, GREY, ship_body) # Main hull
     pygame.draw.polygon(img_base, DARK_GREY, [(25, 5), (10, 28), (18, 26), (32, 26), (40, 28)]) # Darker inset
@@ -59,7 +59,7 @@ def generate_assets():
     pygame.draw.ellipse(img_base, YELLOW, (22, 36, 6, 6)) # Inner glow
     create_directional_assets('player_shooter', img_base)
 
-    # Hybrid (Chunkier, defined front/wings)
+    # Hybrid 
     img_base = pygame.Surface((48, 48), pygame.SRCALPHA)
     # Body
     pygame.draw.rect(img_base, DARK_GREY, (8, 0, 32, 40)) # Main body
@@ -87,40 +87,40 @@ def generate_assets():
     pygame.draw.ellipse(img_base, YELLOW, (28, 48, 8, 6)) # Yellow engine glow
     create_directional_assets('player_reflector', img_base)
 
-    # --- Enemy Ships (More Detail) ---
-    # Basic (More bug-like)
+    # --- Enemy Ships ---
+    # Basic 
     img = pygame.Surface((40, 40), pygame.SRCALPHA)
     pygame.draw.ellipse(img, DARK_GREEN, (0, 5, 40, 30)) # Body
     pygame.draw.ellipse(img, GREEN, (5, 10, 30, 20)) # Highlight
-    pygame.draw.polygon(img, DARK_GREEN, [(0, 15), (5, 10), (5, 30), (0, 25)]) # Left mandible?
-    pygame.draw.polygon(img, DARK_GREEN, [(40, 15), (35, 10), (35, 30), (40, 25)]) # Right mandible?
+    pygame.draw.polygon(img, DARK_GREEN, [(0, 15), (5, 10), (5, 30), (0, 25)]) # Left mandible
+    pygame.draw.polygon(img, DARK_GREEN, [(40, 15), (35, 10), (35, 30), (40, 25)]) # Right mandible
     pygame.draw.ellipse(img, RED, (13, 15, 6, 4)) # Eye 1
     pygame.draw.ellipse(img, RED, (21, 15, 6, 4)) # Eye 2
     assets['enemy_basic'] = img
 
-    # Strafer (Sharper, fins)
-    img = pygame.Surface((45, 40), pygame.SRCALPHA) # Slightly taller
+    # Strafer 
+    img = pygame.Surface((45, 40), pygame.SRCALPHA) 
     pygame.draw.polygon(img, (0, 150, 150), [(22, 0), (0, 30), (10, 40), (35, 40), (45, 30)]) # Main body dark cyan
     pygame.draw.polygon(img, CYAN, [(22, 5), (5, 28), (12, 35), (33, 35), (40, 28)]) # Lighter inset
     pygame.draw.line(img, WHITE, (22, 8), (22, 20), 1) # Center line detail
     pygame.draw.rect(img, DARK_GREY, (18, 38, 9, 5)) # Engine nozzle
     assets['enemy_strafer'] = img
 
-    # Charger (More menacing, plating)
+    # Charger 
     img = pygame.Surface((50, 55), pygame.SRCALPHA)
     pygame.draw.polygon(img, DARK_RED, [(25, 50), (0, 15), (10, 0), (40, 0), (50, 15)]) # Main body dark red
     pygame.draw.polygon(img, RED, [(25, 45), (5, 18), (13, 5), (37, 5), (45, 18)]) # Lighter red plates
-    pygame.draw.polygon(img, ORANGE, [(25, 40), (15, 25), (25, 10), (35, 25)]) # Center detail/eye?
+    pygame.draw.polygon(img, ORANGE, [(25, 40), (15, 25), (25, 10), (35, 25)]) # Center detail/eye
     pygame.draw.rect(img, (50,0,0), (20, 50, 10, 5)) # Engine back
     assets['enemy_charger'] = img
 
-    # Laser (Crystalline, glowing core)
+    # Laser 
     img = pygame.Surface((40, 45), pygame.SRCALPHA)
     pygame.draw.polygon(img, (100, 0, 150), [(20, 0), (0, 20), (20, 45), (40, 20)]) # Dark Purple diamond body
     pygame.draw.polygon(img, PURPLE, [(20, 5), (5, 20), (20, 40), (35, 20)]) # Lighter facets
     pygame.draw.ellipse(img, WHITE, (15, 18, 10, 10)) # White core
     pygame.draw.ellipse(img, LIGHT_BLUE, (17, 20, 6, 6)) # Blue glow in core
-    pygame.draw.rect(img, LIGHT_GREY, (18, 40, 4, 5)) # Emitter tip (brighter)
+    pygame.draw.rect(img, LIGHT_GREY, (18, 40, 4, 5)) # Emitter tip 
     assets['enemy_laser'] = img
 
     # --- Bullets (Added simple trails/glow) ---
@@ -141,15 +141,15 @@ def generate_assets():
     pygame.draw.circle(img, RED + (80,), (9, 9), 9) # Glow circle
     assets['bullet_boss'] = img
 
-    # --- Sword Slash Animation Frames (Enhanced Arc) ---
+    # --- Sword Slash Animation Frames ---
     assets['sword_slash_frames'] = []
-    num_frames = 6; max_radius = 70; arc_thickness = 6 # Wider range, thicker
+    num_frames = 6; max_radius = 70; arc_thickness = 6 
     for i in range(num_frames):
         frame_size = (max_radius * 2 + 20, max_radius * 2 + 20); frame_surf = pygame.Surface(frame_size, pygame.SRCALPHA)
         center_x, center_y = frame_size[0] // 2, frame_size[1] // 2; current_progress = (i + 1) / num_frames
-        current_radius = int(max_radius * current_progress); current_alpha = int(255 * (1.0 - (i / num_frames)**1.8)) # Adjust fade
+        current_radius = int(max_radius * current_progress); current_alpha = int(255 * (1.0 - (i / num_frames)**1.8)) 
         arc_rect = pygame.Rect(center_x - current_radius, center_y - current_radius, current_radius*2, current_radius*2)
-        start_a = math.radians(180 + 50); end_a = math.radians(180 - 50) # Wider sweep
+        start_a = math.radians(180 + 50); end_a = math.radians(180 - 50) 
         try:
             if arc_rect.width > 0 and arc_rect.height > 0 and current_radius > arc_thickness // 2:
                 pygame.draw.arc(frame_surf, WHITE + (current_alpha,), arc_rect, start_a, end_a, arc_thickness)
@@ -159,7 +159,7 @@ def generate_assets():
         except ValueError as e: print(f"Warning: Error drawing arc frame {i}: {e}")
         assets['sword_slash_frames'].append(frame_surf)
 
-    # --- Background (Keep as is) ---
+    # --- Background ---
     img = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT)); img.fill(BLACK)
     for _ in range(150): x = random.randrange(SCREEN_WIDTH); y = random.randrange(SCREEN_HEIGHT); size = random.choice([1, 1, 2, 2, 3]); brightness = random.randrange(100, 255); color = (brightness, brightness, brightness); pygame.draw.rect(img, color, (x, y, size, size))
     assets['background'] = img
@@ -203,7 +203,7 @@ WAVE_DEFINITIONS = {
 }
 WAVE_TRANSITION_TIME = 2500
 
-# --- Game Class (MODIFIED) ---
+# --- Game Class ---
 class Game:
     def __init__(self):
         pygame.init(); pygame.mixer.init()
